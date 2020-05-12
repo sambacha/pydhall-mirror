@@ -12,6 +12,7 @@ from pydhall.ast.nodes import (
     Chunk,
     DoubleLit,
     If,
+    IntegerLit,
     LineComment,
     NaturalLit,
     Term,
@@ -267,8 +268,8 @@ class Dhall(Parser):
     Zero <- '0'
 
     IntegerLiteral ←
-        '+' n:NaturalLiteral # { return IntegerLit(n.(NaturalLit)), nil }
-      / '-' n:NaturalLiteral # { return IntegerLit(-(n.(NaturalLit))), nil }
+        '+' n:NaturalLiteral
+      / '-' mn:NaturalLiteral { on_IntegerLiteral }
 
     DeBruijn ← _ '@' _ index:NaturalLiteral
 
@@ -878,3 +879,9 @@ class Dhall(Parser):
         if nan is not self.NoMatch:
             return self.emit(DoubleLit, float("nan"))
         assert False
+
+    def on_IntegerLiteral(self, _, n=None, mn=None):
+        if n is not self.NoMatch:
+            return self.emit(IntegerLit, n.value)
+        if mn is nt self.NoMatch:
+            return self.emit(IntegerLit, -n.value)

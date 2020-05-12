@@ -95,6 +95,10 @@ class DoubleLit(NumberLit):
     pass
 
 
+class IntegerLit(NumberLit):
+    pass
+
+
 class Chunk(Node):
     hash_attrs = ["prefix", "expr"]
 

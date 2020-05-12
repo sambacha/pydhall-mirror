@@ -106,6 +106,18 @@ def test_double_lit():
     assert result == DoubleLit(value=nan, offset=0)
 
 
+def test_integer_lit():
+    p = Dhall("42")
+    result = p.IntegerLiteral()
+    assert result == 42
+    p = Dhall("0xa1")
+    result = p.IntegerLiteral()
+    assert result == 161
+    p = Dhall("0")
+    result = p.IntegerLiteral()
+    assert result == 0
+
+
 def test_var():
     p = Dhall("myvar")
     result = p.Variable()
