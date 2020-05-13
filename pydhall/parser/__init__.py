@@ -12,14 +12,22 @@ from pydhall.ast.nodes import (
     Builtin,
     Chunk,
     DoubleLit,
+    EmptyList,
     EnvVar,
     If,
+    Import,
+    ImportHashed,
     IntegerLit,
     Let,
     LineComment,
+    LocalFile,
+    Merge,
     NaturalLit,
+    Op,
+    Some,
     Term,
     TextLit,
+    ToMap,
     Var,
 )
 
@@ -309,14 +317,10 @@ class Dhall(Parser):
 
     Local ← ParentPath / HerePath / HomePath / AbsolutePath
 
-    ParentPath ← ".." p:Path
-    # { return LocalFile(path.Join("..", p.(string))), nil }
-    HerePath ← '.' p:Path
-    # { return LocalFile(p.(string)), nil }
-    HomePath ← '~' p:Path
-    # { return LocalFile(path.Join("~", p.(string))), nil }
-    AbsolutePath ← p:Path
-    # { return LocalFile(path.Join("/", p.(string))), nil }
+    ParentPath ← ".." p:Path { on_ParentPath }
+    HerePath ← '.' p:Path { on_HerePath }
+    HomePath ← '~' p:Path { on_HomePath }
+    AbsolutePath ← p:Path { on_AbsolutePath }
 
     Scheme <- "http" 's'?
 
@@ -410,21 +414,11 @@ class Dhall(Parser):
     Hash <- "sha256:" val:HashValue
     # { return append([]byte{0x12,0x20}, val.([]byte)...), nil }
 
-    ImportHashed ← i:ImportType h:(_1 Hash)?
-    # {
-    #     out := ImportHashed{Fetchable: i.(Fetchable)}
-    #     if h != nil {
-    #         out.Hash = h.([]interface{})[1].([]byte)
-    #     }
-    #     return out, nil
-    # }
+    ImportHashed ← i:ImportType h:(_1 Hash)? { on_ImportHashed }
 
-    ImportAsText <- i:ImportHashed _ As _1 Text
-    # { return Import{ImportHashed: i.(ImportHashed), ImportMode: RawText}, nil }
-    ImportAsLocation <- i:ImportHashed _ As _1 Location
-    # { return Import{ImportHashed: i.(ImportHashed), ImportMode: Location}, nil }
-    SimpleImport <- i:ImportHashed
-    # { return Import{ImportHashed: i.(ImportHashed), ImportMode: Code}, nil }
+    ImportAsText <- i:ImportHashed _ As _1 Text { on_ImportAsText }
+    ImportAsLocation <- i:ImportHashed _ As _1 Location { on_ImportAsLocation }
+    SimpleImport <- i:ImportHashed { on_SimpleImport }
     Import <-
         ImportAsText
         / ImportAsLocation
@@ -473,63 +467,54 @@ class Dhall(Parser):
     #       }
     # AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression
     # { return NewAnonPi(o.(Term),e.(Term)), nil }
-    MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression
-    # {
-    #           return Merge{Handler:h.(Term), Union:u.(Term), Annotation:a.(Term)}, nil
-    #       }
+    MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
     IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
     Expression <-
         LambdaExpression
-        / NaturalLiteral
         / IfExpression
         / Bindings
         / ForallExpression
         # / AnonPiExpression
         / MergeExpression
         / EmptyList
-        # / AnnotatedExpression
+        / AnnotatedExpression
 
 
     Annotation ← ':' _1 a:Expression { @a }
 
-    # AnnotatedExpression ← e:OperatorExpression a:(_ Annotation)?
+    AnnotatedExpression ← e:OperatorExpression a:(_ Annotation)? { on_AnnotatedExpression }
 
     EmptyList ← '[' _ (',' _)? ']' _ ':' _1 a:ApplicationExpression
-    # {
-    #           return EmptyList{a.(Term)},nil
-    # }
 
     OperatorExpression ← ImportAltExpression
 
     ImportAltExpression    ← first:OrExpression           rest:(_ "?" _1 OrExpression)*
-    #   {return parseOperator(ImportAltOp, first, rest), nil}
+        { on_Op }
     OrExpression           ← first:PlusExpression         rest:(_ "||" _ PlusExpression)*
-    #   {return parseOperator(OrOp, first, rest), nil}
-    PlusExpression         ← first:TextAppendExpression   rest:(_ '+' _1 e:TextAppendExpression)*
-    #   {return parseOperator(PlusOp, first, rest), nil}
-    TextAppendExpression   ← first:ListAppendExpression   rest:(_ "++" _ e:ListAppendExpression)*
-    #   {return parseOperator(TextAppendOp, first, rest), nil}
-    ListAppendExpression   ← first:AndExpression          rest:(_ '#' _ e:AndExpression)*
-    #   {return parseOperator(ListAppendOp, first, rest), nil}
-    AndExpression          ← first:CombineExpression      rest:(_ "&&" _ e:CombineExpression)*
-    #   {return parseOperator(AndOp, first, rest), nil}
-    CombineExpression      ← first:PreferExpression       rest:(_ Combine _ e:PreferExpression)*
-    #   {return parseOperator(RecordMergeOp, first, rest), nil}
-    PreferExpression       ← first:CombineTypesExpression rest:(_ Prefer _ e:CombineTypesExpression)*
-    #   {return parseOperator(RightBiasedRecordMergeOp, first, rest), nil}
-
-    CombineTypesExpression ← first:TimesExpression rest:(_ CombineTypes _ e:TimesExpression)*
-
-    #   {return parseOperator(RecordTypeMergeOp, first, rest), nil}
-    TimesExpression        ← first:EqualExpression rest:(_ '*' _ e:EqualExpression)*
-    #   {return parseOperator(TimesOp, first, rest), nil}
-    EqualExpression        ← first:NotEqualExpression rest:(_ "==" _ e:NotEqualExpression)*
-    #   {return parseOperator(EqOp, first, rest), nil}
-    NotEqualExpression     ← first:EquivalentExpression rest:(_ "!=" _ e:EquivalentExpression)*
-    #   {return parseOperator(NeOp, first, rest), nil}
-    EquivalentExpression   ← first:WithExpression rest:(_ Equivalent _ e:WithExpression)*
-    #   {return parseOperator(EquivOp, first, rest), nil}
-    WithExpression         ← first:ApplicationExpression rest:(_1 with_ _1 FieldPath _ '=' _ e:ApplicationExpression)*
+        { on_Op }
+    PlusExpression         ← first:TextAppendExpression   rest:(_ '+' _1 TextAppendExpression)*
+        { on_Op }
+    TextAppendExpression   ← first:ListAppendExpression   rest:(_ "++" _ ListAppendExpression)*
+        { on_Op }
+    ListAppendExpression   ← first:AndExpression          rest:(_ '#' _ AndExpression)*
+        { on_Op }
+    AndExpression          ← first:CombineExpression      rest:(_ "&&" _ CombineExpression)*
+        { on_Op }
+    CombineExpression      ← first:PreferExpression       rest:(_ Combine _ PreferExpression)*
+        { on_Op }
+    PreferExpression       ← first:CombineTypesExpression rest:(_ Prefer _ CombineTypesExpression)*
+        { on_Op }
+    CombineTypesExpression ← first:TimesExpression rest:(_ CombineTypes _ TimesExpression)*
+        { on_Op }
+    TimesExpression        ← first:EqualExpression rest:(_ '*' _ EqualExpression)*
+        { on_Op }
+    EqualExpression        ← first:NotEqualExpression rest:(_ "==" _ NotEqualExpression)*
+        { on_Op }
+    NotEqualExpression     ← first:EquivalentExpression rest:(_ "!=" _ EquivalentExpression)*
+        { on_Op }
+    EquivalentExpression   ← first:WithExpression rest:(_ Equivalent _ WithExpression)*
+        { on_Op }
+    WithExpression         ← first:ApplicationExpression rest:(_1 with_ _1 FieldPath _ '=' _ ApplicationExpression)* { @first }
     #   {
     #     out := first.(Term)
     #     if rest == nil { return out, nil }
@@ -552,7 +537,7 @@ class Dhall(Parser):
     #   return out, nil
     # }
 
-    ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)*
+    ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)* { @f }
     # {
     #           e := f.(Term)
     #           if rest == nil { return e, nil }
@@ -562,25 +547,19 @@ class Dhall(Parser):
     #           return e,nil
     #       }
 
-    FirstApplicationExpression ← Merge _1 h:ImportExpression _1 u:ImportExpression
-    #        {
-    #              return Merge{Handler:h.(Term), Union:u.(Term)}, nil
-    #           }
-    #      / Some _1 e:ImportExpression { return Some{e.(Term)}, nil }
-    #      / toMap _1 e:ImportExpression { return ToMap{Record: e.(Term)}, nil }
-    #      / ImportExpression
+    MergeExpr <- Merge _1 h:ImportExpression _1 u:ImportExpression { on_MergeExpr }
+    SomeExpr <- Some _1 e:ImportExpression { on_SomeExpr } # { return Some{e.(Term)}, nil }
+    toMapExpr <- toMap _1 e:ImportExpression { on_toMapExpr } # { return ToMap{Record: e.(Term)}, nil }
+    FirstApplicationExpression ← MergeExpr
+         / SomeExpr
+         / toMapExpr
+         / ImportExpression
 
     ImportExpression ← Import / CompletionExpression
 
-    CompletionExpression ← a:SelectorExpression b:(_ Complete _ SelectorExpression)?
-    # {
-    #     if b == nil {
-    #         return a, nil
-    #     }
-    #     return Op{OpCode:CompleteOp ,L:a.(Term),R:b.([]interface{})[3].(Term)},nil
-    # }
+    CompletionExpression ← first:SelectorExpression rest:(_ Complete _ SelectorExpression)? { on_Op }
 
-    SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)*
+    SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)* { @e }
     # {
     #     expr := e.(Term)
     #     labels := ls.([]interface{})
@@ -805,9 +784,9 @@ class Dhall(Parser):
         return self.emit(If, cond, t, f)
 
     def on_AnnotatedExpression(self, _, e, a=None):
-        if a is None:
+        if not a:
             return e
-        return self.emit(Annot, e, a)
+        return self.emit(Annot, e, a[1])
 
     def on_Variable(self, _, name, index=None):
         if not index:
@@ -877,3 +856,57 @@ class Dhall(Parser):
 
     def on_Bindings(self, _, bindings, b):
         return self.emit(Let, bindings, b)
+
+    op_classes = {}
+    for opclass in Op.__subclasses__():
+        ops = getattr(opclass, "operators", [])
+        for o in ops:
+            op_classes[o] = opclass
+
+    def on_Op(self, _, first, rest):
+        out = first
+        for r in rest:
+            out = self.emit(self.op_classes[r[1]], out, r[3])
+        return out
+
+    def on_MergeExpr(self, _, h, u, a=None):
+        return self.emit(Merge, h, u, a=None)
+
+    def on_SomeExpr(self, _, e):
+        return self.emit(Some, e)
+
+    def on_toMapExpr(self, _, e):
+        return self.emit(ToMap, e)
+
+    def on_EmptyList(self, _, a):
+        return self.emit(EmptyList, a)
+
+    def on_ParentPath(self, _, p):
+        return self.emit(LocalFile, str(Path("..").joinpath(p)))
+
+    def on_HerePath(self, _, p):
+        return self.emit(LocalFile, str(Path(".").joinpath(p)))
+
+    def on_HomePath(self, _, p):
+        return self.emit(LocalFile, str(Path("~").joinpath(p)))
+
+    def on_AbsolutePath(self, _, p):
+        return self.emit(LocalFile, str(Path("/").joinpath(p)))
+
+    def on_ImportHashed(self, _, i, h=None):
+        if not h:
+            h = None
+        else:
+            h = h[1]
+        return self.emit(ImportHashed, i, h)
+
+    def on_ImportAsText(self, _, i):
+        return self.emit(Import, i, Import.Mode.RawText)
+
+    def on_ImportAsLocation(self, _, i):
+        return self.emit(Import, i, Import.Mode.Location)
+
+    def on_SimpleImport(self, _, i):
+        return self.emit(Import, i, Import.Mode.Code)
+
+

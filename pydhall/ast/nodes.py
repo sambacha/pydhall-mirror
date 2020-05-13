@@ -122,11 +122,42 @@ class TextLit(Term):
 
 
 class EnvVar(Fetchable):
-    hash_atts = ["name"]
+    hash_attrs = ["name"]
 
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = name
+
+
+class LocalFile(Fetchable):
+    hash_attrs = ["path"]
+
+    def __init__(self, path, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.path = path
+
+
+class ImportHashed(Fetchable):
+    hash_attrs = ["fetchable", "hash"]
+
+    def __init__(self, fetchable, hash, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fetchable = fetchable
+        self.hash = hash
+
+
+class Import(Term):
+    hash_attrs = ["import_hashed", "import_mode"]
+
+    class Mode:
+        Code = 0
+        RawText = 1
+        Location = 2
+
+    def __init__(self, import_hashed, import_mode=0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.import_hashed = import_hashed
+        self.import_mode = import_mode
 
 
 class Binding(Node):
@@ -148,9 +179,118 @@ class Let(Term):
         self.body = body
 
 
-class Op(Term):
-    def __init__(self, op, first, rest, *args, **kwargs):
+class EmptyList(Term):
+    hash_attrs = ["type"]
+
+    def __init__(self, type, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.type = type
+
+
+class Some(Term):
+    hash_attrs = ["val"]
+
+    def __init__(self, val, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.val = val
+
+
+class ToMap(Term):
+    hash_attrs = ["record", "type"]
+
+    def __init__(self, record, type=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.record = record
+        self.type = type
+
+
+class Merge(Term):
+    hash_attrs = ["handler", "union", "annotation"]
+
+    def __init__(self, handler, union, annotation=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.handler = handler
+        self.union = union
+        self.annotation = annotation
+
+
+class Op(Term):
+    hash_attrs = ["l", "r"]
+
+    def __init__(self, l, r, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.l = l
+        self.r = r
+
+
+class ImportAltOp(Op):
+    precedence = 10
+    operators = ("?",)
+
+
+class OrOp(Op):
+    precedence = 20
+    operators = ("||",)
+
+
+class PlusOp(Op):
+    precedence = 30
+    operators = ("+",)
+
+
+class TextAppendOp(Op):
+    precedence = 40
+    operators = ("++",)
+
+
+class ListAppendOp(Op):
+    precedence = 50
+    operators = ("#",)
+
+
+class AndOp(Op):
+    precedence = 60
+    operators = ("&&",)
+
+
+class RecordMergeOp(Op):
+    precedence = 70
+    operators = ("∧", "/\\")
+
+
+class RightBiasedRecordMergeOp(Op):
+    precedence = 80
+    operators = ("⫽", "//")
+
+
+class RecordTypeMergeOp(Op):
+    precedence = 90
+    operators = ("⩓", r"//\\")
+
+
+class TimesOp(Op):
+    precedence = 100
+    operators = ("*",)
+
+
+class EqOp(Op):
+    precedence = 110
+    operators = ("==",)
+
+
+class NeOp(Op):
+    precedence = 120
+    operators = ("!=",)
+
+
+class EquivOp(Op):
+    precedence = 130
+    operators = ("≡", "===")
+
+
+class CompleteOp(Op):
+    precedence = 140
+    operators = ("::",)
 
 
 class Builtin(Term):

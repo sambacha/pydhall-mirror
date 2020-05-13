@@ -8,12 +8,16 @@ from math import inf, nan
 import pytest
 
 from pydhall.ast.nodes import (
+    Binding,
     BlockComment,
     DoubleLit,
     IntegerLit,
+    Let,
     LineComment,
     NaturalLit,
+    PlusOp,
     TextLit,
+    TimesOp,
     Var,
 )
 
@@ -137,8 +141,49 @@ def test_double_quote_text():
     # TODO: add interpolations test
 
 
-@pytest.mark.skip("not fully implemented")
-def test_bindings():
-    p = Dhall("let a = 42 in a")
+@pytest.mark.parametrize("input,expected", [
+    ("let a = 42 in a",
+     Let(
+        bindings=[
+            Binding(
+                variable='a',
+                annotation='',
+                value=NaturalLit(value=42, offset=0)
+                , offset=0
+            )
+        ],
+        body=Var(name='a', index=None, offset=0)
+        , offset=0)),
+])
+def test_bindings(input, expected):
+    p = Dhall(input)
     result = p.Bindings()
-    assert result == 2
+    assert result == expected
+
+
+@pytest.mark.parametrize("input,expected", [
+    ("1 + 2",
+     PlusOp(
+        l=NaturalLit(value=1, offset=0),
+        r=NaturalLit(value=2, offset=0), offset=0)),
+    ("1 + 2 + 3",
+     PlusOp(
+        l=PlusOp(
+            l=NaturalLit(value=1, offset=0),
+            r=NaturalLit(value=2, offset=0),
+            offset=0),
+        r=NaturalLit(value=3, offset=0),
+        offset=0)),
+    ("1 + 2 * 3",
+     PlusOp(
+        l=NaturalLit(value=1, offset=0),
+        r=TimesOp(
+            l=NaturalLit(value=2, offset=0),
+            r=NaturalLit(value=3, offset=0),
+            offset=0),
+        offset=0)),
+])
+def test_operator_expr(input, expected):
+    p = Dhall(input)
+    result = p.OperatorExpression()
+    assert result == expected
