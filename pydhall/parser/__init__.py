@@ -5,22 +5,19 @@ from io import StringIO
 
 from fastidious import Parser
 
-from pydhall.ast.nodes import (
+from pydhall.ast.node import BlockComment, LineComment
+from pydhall.ast.fetchable import ImportHashed, EnvVar, LocalFile
+from pydhall.ast.term import (
     Annot,
     Binding,
-    BlockComment,
     Builtin,
     Chunk,
     DoubleLit,
     EmptyList,
-    EnvVar,
     If,
     Import,
-    ImportHashed,
     IntegerLit,
     Let,
-    LineComment,
-    LocalFile,
     Merge,
     NaturalLit,
     Op,

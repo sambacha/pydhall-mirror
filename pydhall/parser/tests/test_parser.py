@@ -7,13 +7,12 @@ from math import inf, nan
 
 import pytest
 
-from pydhall.ast.nodes import (
+from pydhall.ast.node import BlockComment, LineComment
+from pydhall.ast.term import (
     Binding,
-    BlockComment,
     DoubleLit,
     IntegerLit,
     Let,
-    LineComment,
     NaturalLit,
     PlusOp,
     TextLit,
