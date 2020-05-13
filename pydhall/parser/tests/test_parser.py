@@ -10,7 +10,9 @@ import pytest
 from pydhall.ast.nodes import (
     BlockComment,
     DoubleLit,
+    IntegerLit,
     LineComment,
+    NaturalLit,
     TextLit,
     Var,
 )
@@ -39,25 +41,26 @@ def test_block_comment():
     assert result == BlockComment("{- hop -}", offset=0)
 
 
-def test_label():
-    p = Dhall("label")
+@pytest.mark.parametrize("input,expected", [
+    ("label", "label"),
+    ("iflabel", "iflabel"),
+    ("`label`", "label"),
+    ("`if label`", "if label"),
+    ("`if`", "if"),
+])
+def test_label(input, expected):
+    p = Dhall(input)
     result = p.Label()
-    assert p.p_flatten(result) == "label"
-    p = Dhall("iflabel")
-    result = p.Label()
-    assert p.p_flatten(result) == "iflabel"
-    p = Dhall("if")
+    assert p.p_flatten(result) == expected
+
+
+@pytest.mark.parametrize("input", [
+    ("if",)
+])
+def test_label_fail(input):
+    p = Dhall(input)
     result = p.Label()
     assert result is p.NoMatch
-    p = Dhall("`label`")
-    result = p.Label()
-    assert p.p_flatten(result) == "label"
-    p = Dhall("`if label`")
-    result = p.Label()
-    assert p.p_flatten(result) == "if label"
-    p = Dhall("`if`")
-    result = p.Label()
-    assert p.p_flatten(result) == "if"
 
 
 def test_url():
@@ -70,52 +73,52 @@ def test_url():
         "https://user:pass@example.com/package.dhall?stuff=21&b=32")
 
 
-def test_natural():
-    p = Dhall("42")
+@pytest.mark.parametrize("input,expected", [
+    ("42", NaturalLit(value=42, offset=0)),
+    ("0", NaturalLit(value=0, offset=0)),
+    ("161", NaturalLit(value=161, offset=0)),
+])
+def test_natural(input, expected):
+    p = Dhall(input)
     result = p.NaturalLiteral()
-    assert result.value == 42
-    p = Dhall("0xa1")
-    result = p.NaturalLiteral()
-    assert result.value == 161
-    p = Dhall("0")
-    result = p.NaturalLiteral()
-    assert result.value == 0
+    assert result == expected
 
 
-def test_double_lit():
-    p = Dhall("0.02")
+@pytest.mark.parametrize("input,expected", [
+    ("0.02", DoubleLit(value=0.02, offset=0)),
+    ("+2e-2", DoubleLit(value=0.02, offset=0)),
+    ("+2E-2", DoubleLit(value=0.02, offset=0)),
+    ("-0.02", DoubleLit(value=-0.02, offset=0)),
+])
+def test_numeric_double_lit(input, expected):
+    p = Dhall(input)
     result = p.NumericDoubleLiteral()
-    assert result == DoubleLit(value=0.02, offset=0)
-    p = Dhall("+2e-2")
-    result = p.NumericDoubleLiteral()
-    assert result == DoubleLit(value=0.02, offset=0)
-    p = Dhall("+2E-2")
-    result = p.NumericDoubleLiteral()
-    assert result == DoubleLit(value=0.02, offset=0)
-    p = Dhall("-0.02")
-    result = p.NumericDoubleLiteral()
-    assert result == DoubleLit(value=-0.02, offset=0)
-    p = Dhall("-0.02")
+    assert result == expected
+
+
+@pytest.mark.parametrize("input,expected", [
+    ("-0.02", DoubleLit(value=-0.02, offset=0)),
+    ("-Infinity", DoubleLit(value=-inf, offset=0)),
+    ("NaN", DoubleLit(value=nan, offset=0)),
+])
+def test_double_lit(input, expected):
+    p = Dhall(input)
     result = p.DoubleLiteral()
-    assert result == DoubleLit(value=-0.02, offset=0)
-    p = Dhall("-Infinity")
-    result = p.DoubleLiteral()
-    assert result == DoubleLit(value=-inf, offset=0)
-    p = Dhall("NaN")
-    result = p.DoubleLiteral()
-    assert result == DoubleLit(value=nan, offset=0)
+    assert result == expected
 
 
-def test_integer_lit():
-    p = Dhall("42")
+@pytest.mark.parametrize("input,expected", [
+    ("+42", IntegerLit(value=42, offset=0)),
+    ("+0xa1", IntegerLit(value=161, offset=0)),
+    ("+0", IntegerLit(value=0, offset=0)),
+    ("-42", IntegerLit(value=-42, offset=0)),
+    ("-0xa1", IntegerLit(value=-161, offset=0)),
+    ("-0", IntegerLit(value=-0, offset=0)),
+])
+def test_integer_lit(input, expected):
+    p = Dhall(input)
     result = p.IntegerLiteral()
-    assert result == 42
-    p = Dhall("0xa1")
-    result = p.IntegerLiteral()
-    assert result == 161
-    p = Dhall("0")
-    result = p.IntegerLiteral()
-    assert result == 0
+    assert result == expected
 
 
 def test_var():
@@ -132,3 +135,10 @@ def test_double_quote_text():
     result = p.DoubleQuoteLiteral()
     assert result == TextLit(chunks=[], suffix='a string', offset=0)
     # TODO: add interpolations test
+
+
+@pytest.mark.skip("not fully implemented")
+def test_bindings():
+    p = Dhall("let a = 42 in a")
+    result = p.Bindings()
+    assert result == 2

@@ -7,12 +7,15 @@ from fastidious import Parser
 
 from pydhall.ast.nodes import (
     Annot,
+    Binding,
     BlockComment,
     Builtin,
     Chunk,
     DoubleLit,
+    EnvVar,
     If,
     IntegerLit,
+    Let,
     LineComment,
     NaturalLit,
     Term,
@@ -268,8 +271,8 @@ class Dhall(Parser):
     Zero <- '0'
 
     IntegerLiteral ←
-        '+' n:NaturalLiteral
-      / '-' mn:NaturalLiteral { on_IntegerLiteral }
+        n:('+' NaturalLiteral)
+      / mn:('-' mn:NaturalLiteral) { on_IntegerLiteral }
 
     DeBruijn ← _ '@' _ index:NaturalLiteral
 
@@ -357,10 +360,7 @@ class Dhall(Parser):
 
     Env ← "env:" v:(BashEnvironmentVariable / PosixEnvironmentVariable) { @v }
 
-    BashEnvironmentVariable ← [A-Za-z_][A-Za-z0-9_]*
-    # {
-    #   return EnvVar(string(c.text)), nil
-    # }
+    BashEnvironmentVariable ← [A-Za-z_][A-Za-z0-9_]* { on_BashEnvironmentVariable }
 
     PosixEnvironmentVariable ← '"' v:PosixEnvironmentVariableContent '"' { @v }
 
@@ -432,21 +432,7 @@ class Dhall(Parser):
 
 
     LetBinding ←
-        Let _1 label:NonreservedLabel _ a:(Annotation _)? '=' _ v:Expression _
-    #             {
-    #     if a != nil {
-    #         return Binding{
-    #             Variable: label.(string),
-    #             Annotation: a.([]interface{})[0].(Term),
-    #             Value: v.(Term),
-    #         }, nil
-    #     } else {
-    #         return Binding{
-    #             Variable: label.(string),
-    #             Value: v.(Term),
-    #         }, nil
-    #     }
-    # }
+        Let _1 label:NonreservedLabel _ a:(Annotation _)? '=' _ v:Expression _ { on_LetBinding }
 
     # Expression ←
     #       Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _ Arrow _ body:Expression {
@@ -478,14 +464,7 @@ class Dhall(Parser):
     # {
     #           return Lambda{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
     #       }
-    Bindings <- bindings:LetBinding+ In _1 b:Expression
-    # {
-    #         bs := make([]Binding, len(bindings.([]interface{})))
-    #         for i, binding := range bindings.([]interface{}) {
-    #             bs[i] = binding.(Binding)
-    #         }
-    #         return NewLet(b.(Term), bs...), nil
-    #       }
+    Bindings <- bindings:LetBinding+ In _1 b:Expression { on_Bindings }
     ForallExpression <-
         Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')'
         _ Arrow _ body:Expression
@@ -501,6 +480,7 @@ class Dhall(Parser):
     IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
     Expression <-
         LambdaExpression
+        / NaturalLiteral
         / IfExpression
         / Bindings
         / ForallExpression
@@ -882,6 +862,18 @@ class Dhall(Parser):
 
     def on_IntegerLiteral(self, _, n=None, mn=None):
         if n is not self.NoMatch:
-            return self.emit(IntegerLit, n.value)
-        if mn is nt self.NoMatch:
-            return self.emit(IntegerLit, -n.value)
+            return self.emit(IntegerLit, n[1].value)
+        if mn is not self.NoMatch:
+            return self.emit(IntegerLit, -(mn[1].value))
+        assert False
+
+    def on_BashEnvironmentVariable(self, v):
+        return self.emit(EnvVar, self.p_flatten(v))
+
+    def on_LetBinding(self, _, label, a, v):
+        if a is self.NoMatch:
+            a = None
+        return self.emit(Binding, label, a, v)
+
+    def on_Bindings(self, _, bindings, b):
+        return self.emit(Let, bindings, b)

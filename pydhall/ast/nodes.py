@@ -51,6 +51,10 @@ class Term(Node):
     pass
 
 
+class Fetchable(Node):
+    pass
+
+
 class If(Term):
     hash_attrs = ["cond", "true", "false"]
 
@@ -115,6 +119,33 @@ class TextLit(Term):
         super().__init__(*args, **kwargs)
         self.chunks = chunks
         self.suffix = suffix
+
+
+class EnvVar(Fetchable):
+    hash_atts = ["name"]
+
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+
+class Binding(Node):
+    hash_attrs = ["variable", "annotation", "value"]
+
+    def __init__(self, variable, annotation, value, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.variable = variable
+        self.annotation = annotation
+        self.value = value
+
+
+class Let(Term):
+    hash_attrs = ["bindings", "body"]
+
+    def __init__(self, bindings, body, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bindings = bindings
+        self.body = body
 
 
 class Op(Term):
