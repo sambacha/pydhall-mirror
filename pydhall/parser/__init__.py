@@ -787,7 +787,7 @@ class Dhall(Parser):
 
     def on_Variable(self, _, name, index=None):
         if not index:
-            index = None
+            index = 0
         return self.emit(Var, name, index)
 
     def on_DeBruijn(self, _, index):

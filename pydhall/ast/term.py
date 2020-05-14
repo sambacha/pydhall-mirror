@@ -1,4 +1,5 @@
 from .base import Node, Term
+from . import value
 
 
 class If(Term):
@@ -23,10 +24,17 @@ class Annot(Term):
 class Var(Term):
     hash_attrs = ["name", "index"]
 
-    def __init__(self, name, index, *args, **kwargs):
+    def __init__(self, name, index=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = name
         self.index = index
+
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        max_idx = len(env.get(self.name, tuple()))
+        if self.index >= max_idx:
+            return value._FreeVar(self.name, self.index - max_idx)
+        return env[self.name][self.index]
 
 
 class NumberLit(Term):
@@ -38,7 +46,10 @@ class NumberLit(Term):
 
 
 class NaturalLit(NumberLit):
-    pass
+
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        return value.NaturalLit(self.value)
 
 
 class DoubleLit(NumberLit):
@@ -98,6 +109,12 @@ class Let(Term):
         super().__init__(*args, **kwargs)
         self.bindings = bindings
         self.body = body
+
+    def eval(self, env=None):
+        env = {} if env is None else dict(env)
+        for b in self.bindings:
+            env[b.variable] = [b.value.eval(env)] + list(env.get(b.variable, []))
+        return self.body.eval(env)
 
 
 class EmptyList(Term):

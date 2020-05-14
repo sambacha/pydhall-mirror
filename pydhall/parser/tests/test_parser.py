@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-"""Tests for `pydhall` package."""
+"""Tests for `pydhall.parser` package."""
 
 from urllib.parse import urlparse
 from math import inf, nan
@@ -127,7 +127,7 @@ def test_integer_lit(input, expected):
 def test_var():
     p = Dhall("myvar")
     result = p.Variable()
-    assert result == Var("myvar", None, offset=0)
+    assert result == Var("myvar", 0, offset=0)
     p = Dhall("_@2")
     result = p.Variable()
     assert result == Var("_", 2, offset=0)
@@ -151,7 +151,7 @@ def test_double_quote_text():
                 , offset=0
             )
         ],
-        body=Var(name='a', index=None, offset=0)
+        body=Var(name='a', index=0, offset=0)
         , offset=0)),
 ])
 def test_bindings(input, expected):
