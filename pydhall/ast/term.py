@@ -46,18 +46,21 @@ class NumberLit(Term):
 
 
 class NaturalLit(NumberLit):
-
     def eval(self, env=None):
         env = env if env is not None else {}
         return value.NaturalLit(self.value)
 
 
 class DoubleLit(NumberLit):
-    pass
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        return value.DoubleLit(self.value)
 
 
 class IntegerLit(NumberLit):
-    pass
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        return value.IntegerLit(self.value)
 
 
 class Chunk(Node):
