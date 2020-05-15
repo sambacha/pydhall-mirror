@@ -1,3 +1,6 @@
+from hashlib import sha256
+
+
 class Node:
     hash_attrs = []
 
@@ -32,7 +35,22 @@ class Node:
 
 
 class Term(Node):
-    pass
+    _type = None
+
+    def type(self, ctx=None):
+        if self._type is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.type")
+        return self._type
+
+    def eval(self, env=None):
+        raise NotImplementedError(f"{self.__class__.__name__}.eval")
+
+    def cbor(self):
+        raise NotImplementedError(f"{self.__class__.__name__}.cbor")
+
+    def sha256(self):
+        sha = sha256(self.cbor()).hexdigest()
+        return f"sha256:{sha}"
 
 
 class Fetchable(Node):

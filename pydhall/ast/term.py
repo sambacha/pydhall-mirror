@@ -1,5 +1,7 @@
 from .base import Node, Term
+import cbor
 from . import value
+from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
 class If(Term):
@@ -10,6 +12,28 @@ class If(Term):
         self.cond = cond
         self.true = true
         self.false = false
+
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        cond = self.cond.eval(env)
+        if cond is value.True_:
+            return self.true.eval()
+        if cond is value.False_:
+            return self.false.eval()
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else {}
+        cond = self.cond.type(ctx)
+        if cond != value.Bool:
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_PREDICATE)
+        t = self.true.type()
+        f = self.false.type()
+        if t.quote().type() != value.Type or f.quote().type() != value.Type:
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MUST_BE_TERM)
+        if not t @ f:
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MISMATCH)
+        return t
+
 
 
 class Annot(Term):
@@ -37,7 +61,7 @@ class Var(Term):
         return env[self.name][self.index]
 
 
-class NumberLit(Term):
+class _AtomicLit(Term):
     hash_attrs = ["value"]
 
     def __init__(self, value, *args, **kwargs):
@@ -45,22 +69,36 @@ class NumberLit(Term):
         self.value = value
 
 
-class NaturalLit(NumberLit):
+class NaturalLit(_AtomicLit):
+    _type = value.Natural
+
     def eval(self, env=None):
         env = env if env is not None else {}
         return value.NaturalLit(self.value)
 
 
-class DoubleLit(NumberLit):
+class DoubleLit(_AtomicLit):
+    _type = value.Double
+
     def eval(self, env=None):
         env = env if env is not None else {}
         return value.DoubleLit(self.value)
 
 
-class IntegerLit(NumberLit):
+class IntegerLit(_AtomicLit):
+    _type = value.Integer
+
     def eval(self, env=None):
         env = env if env is not None else {}
         return value.IntegerLit(self.value)
+
+
+class BoolLit(_AtomicLit):
+    _type = value.Bool
+
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        return value.BoolLit(self.value)
 
 
 class Chunk(Node):
@@ -121,11 +159,11 @@ class Let(Term):
 
 
 class EmptyList(Term):
-    hash_attrs = ["type"]
+    hash_attrs = ["type_"]
 
     def __init__(self, type, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.type = type
+        self.type__ = type
 
 
 class Some(Term):
@@ -137,12 +175,12 @@ class Some(Term):
 
 
 class ToMap(Term):
-    hash_attrs = ["record", "type"]
+    hash_attrs = ["record", "type_"]
 
     def __init__(self, record, type=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.record = record
-        self.type = type
+        self.type_ = type
 
 
 class Merge(Term):
@@ -234,6 +272,25 @@ class CompleteOp(Op):
     operators = ("::",)
 
 
+class Universe(Term):
+    def cbor(self):
+        return cbor.dumps(self.__class__.__name__)
+
+
+class Sort(Universe):
+    @property
+    def type(self):
+        raise DhallTypeError(TYPE_ERROR_MESSAGE.UNTYPED)
+
+
+class Kind(Universe):
+    _type = value.Sort
+
+
+class Type(Universe):
+    _type = value.Kind
+
+
 class Builtin(Term):
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -241,23 +298,23 @@ class Builtin(Term):
 
 
 class Double(Builtin):
-    pass
+    _type = value.Type
 
 
 class Text(Builtin):
-    pass
+    _type = value.Type
 
 
 class Bool(Builtin):
-    pass
+    _type = value.Type
 
 
 class Natural(Builtin):
-    pass
+    _type = value.Type
 
 
 class Integer(Builtin):
-    pass
+    _type = value.Type
 
 
 class List(Builtin):

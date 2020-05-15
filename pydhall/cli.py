@@ -1,16 +1,45 @@
 """Console script for pydhall."""
 import sys
-import click
+import argparse
+from pydhall.parser import Dhall
+from pydhall.ast.type_error import DhallTypeError
 
 
-@click.command()
-def main(args=None):
-    """Console script for pydhall."""
-    click.echo("Replace this message by putting your code into "
-               "pydhall.cli.main")
-    click.echo("See click documentation at https://click.palletsprojects.com/")
-    return 0
+def normalize(args):
+    src = sys.stdin.read()
+    module = Dhall.p_parse(src)
+    try:
+        module.type()
+    except DhallTypeError as e:
+        sys.stderr.write("Error: ")
+        sys.stderr.write(str(e))
+        sys.stderr.write("\n")
+        sys.exit(1)
+    print(module.eval())
+
+
+def hash(args):
+    src = sys.stdin.read()
+    module = Dhall.p_parse(src)
+    try:
+        module.type()
+    except DhallTypeError as e:
+        sys.stderr.write("Error: ")
+        sys.stderr.write(str(e))
+        sys.stderr.write("\n")
+        sys.exit(1)
+    print(module.sha256())
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    p_normalize = subparsers.add_parser('normalize')
+    p_normalize.set_defaults(func=normalize)
+
+    p_hash = subparsers.add_parser('hash')
+    p_hash.set_defaults(func=hash)
+
+    args = parser.parse_args()
+    args.func(args)

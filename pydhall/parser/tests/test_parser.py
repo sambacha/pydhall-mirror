@@ -10,13 +10,17 @@ import pytest
 from pydhall.ast.node import BlockComment, LineComment
 from pydhall.ast.term import (
     Binding,
+    BoolLit,
     DoubleLit,
     IntegerLit,
     Let,
+    Kind,
     NaturalLit,
     PlusOp,
+    Sort,
     TextLit,
     TimesOp,
+    Type,
     Var,
 )
 
@@ -42,6 +46,15 @@ def test_block_comment():
     p = Dhall("{- hop -}")
     result = p.BlockComment()
     assert result == BlockComment("{- hop -}", offset=0)
+
+
+@pytest.mark.parametrize("input,expected", [
+    ("Type", Type(offset=0)),
+    ("Kind", Kind(offset=0)),
+    ("Sort", Sort(offset=0)),
+])
+def test_universe(input, expected):
+    assert Dhall.p_parse(input) == expected
 
 
 @pytest.mark.parametrize("input,expected", [
@@ -82,9 +95,7 @@ def test_url():
     ("161", NaturalLit(value=161, offset=0)),
 ])
 def test_natural(input, expected):
-    p = Dhall(input)
-    result = p.NaturalLiteral()
-    assert result == expected
+    assert Dhall.p_parse(input) == expected
 
 
 @pytest.mark.parametrize("input,expected", [
@@ -94,9 +105,7 @@ def test_natural(input, expected):
     ("-0.02", DoubleLit(value=-0.02, offset=0)),
 ])
 def test_numeric_double_lit(input, expected):
-    p = Dhall(input)
-    result = p.NumericDoubleLiteral()
-    assert result == expected
+    assert Dhall.p_parse(input) == expected
 
 
 @pytest.mark.parametrize("input,expected", [
@@ -105,9 +114,7 @@ def test_numeric_double_lit(input, expected):
     ("NaN", DoubleLit(value=nan, offset=0)),
 ])
 def test_double_lit(input, expected):
-    p = Dhall(input)
-    result = p.DoubleLiteral()
-    assert result == expected
+    assert Dhall.p_parse(input) == expected
 
 
 @pytest.mark.parametrize("input,expected", [
@@ -119,9 +126,7 @@ def test_double_lit(input, expected):
     ("-0", IntegerLit(value=-0, offset=0)),
 ])
 def test_integer_lit(input, expected):
-    p = Dhall(input)
-    result = p.IntegerLiteral()
-    assert result == expected
+    assert Dhall.p_parse(input) == expected
 
 
 def test_var():
@@ -153,10 +158,35 @@ def test_double_quote_text():
         ],
         body=Var(name='a', index=0, offset=0)
         , offset=0)),
+    ("let a = 42 let b = 12 in a",
+     Let(
+        bindings=[
+            Binding(
+                variable='a',
+                annotation='',
+                value=NaturalLit(value=42, offset=0)
+                , offset=0
+            ),
+            Binding(
+                variable='b',
+                annotation='',
+                value=NaturalLit(value=12, offset=0)
+                , offset=0
+            ),
+        ],
+        body=Var(name='a', index=0, offset=0)
+        , offset=0)),
 ])
 def test_bindings(input, expected):
-    p = Dhall(input)
-    result = p.Bindings()
+    assert Dhall.p_parse(input) == expected
+
+
+@pytest.mark.parametrize("input,expected", [
+    ("True", BoolLit(value=True, offset=0)),
+    ("False", BoolLit(value=False, offset=0)),
+])
+def test_bool_lit(input, expected):
+    result = Dhall.p_parse(input)
     assert result == expected
 
 
@@ -183,6 +213,5 @@ def test_bindings(input, expected):
         offset=0)),
 ])
 def test_operator_expr(input, expected):
-    p = Dhall(input)
-    result = p.OperatorExpression()
+    result = Dhall.p_parse(input)
     assert result == expected

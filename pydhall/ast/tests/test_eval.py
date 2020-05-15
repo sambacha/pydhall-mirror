@@ -9,6 +9,11 @@ from pydhall.parser import Dhall
     ("let a = 42 in let a = 43 in a@1", 42),
 ])
 def test_let(input, expected):
-    p = Dhall(input)
-    result = p.Bindings().eval()
-    assert result == expected
+    assert Dhall.p_parse(input).eval() == expected
+
+@pytest.mark.parametrize("input,expected", [
+    ("if True then 1 else 2", 1),
+    ("if False then 1 else 2", 2),
+])
+def test_if(input, expected):
+    assert Dhall.p_parse(input).eval() == expected

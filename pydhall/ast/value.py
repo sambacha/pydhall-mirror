@@ -6,8 +6,120 @@ class Value:
     def from_python(cls, value):
         cls(value)
 
+    def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
+        raise NotImplementedError(f"{self.__class__.name}.alpha_equivalent")
+
+    def __matmul__(self, other):
+        return self.alpha_equivalent(other)
+
+
+class Universe(Value):
+    def __init__(self, name, type):
+        self.name = name
+        self._type = type
+
+    def __repr__(self):
+        return f"Universe({self.name})"
+
+    def __str__(self):
+        self.name
+
+    def alpha_equivalent(self, other, level=0):
+        return other is self
+
+
+Sort = Universe("Sort", None)
+Kind = Universe("Kind", Sort)
+Type = Universe("Type", Kind)
+
+
+class Builtin(Value):
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return f"Builtin({self.name})"
+
+    def __str__(self):
+        self.name
+
+    def quote(self, ctx=None, normalize=False):
+        # ctx = ctx if ctx is not None else {}
+        from .term import Builtin
+        return Builtin(self.name)
+
+    def alpha_equivalent(self, other, level=0):
+        return other is self
+
+
+Double = Builtin("Double")
+Text = Builtin("Text")
+Bool = Builtin("Bool")
+Natural = Builtin("Natural")
+Integer = Builtin("Integer")
+
+
+class _False(Value):
+    type = Bool
+
+    def as_python(self):
+        return False
+
+    def as_dhall(self):
+        return "False"
+
+    def __repr__(self):
+        return "False"
+
+    def __str__(self):
+        return "False"
+
+    def __bool__(self):
+        return False
+
+    def quote(self, ctx=None, normalize=False):
+        from .term import BoolLit
+        return BoolLit(False)
+
+
+False_ = _False()
+
+
+class _True(Value):
+    type = Bool
+
+    def as_python(self):
+        return True
+
+    def as_dhall(self):
+        return "True"
+
+    def __repr__(self):
+        return "True"
+
+    def __str__(self):
+        return "True"
+
+    def __bool__(self):
+        return True
+
+    def quote(self, ctx=None, normalize=False):
+        from .term import BoolLit
+        return BoolLit(True)
+
+
+True_ = _True()
+
+
+def BoolLit(val):
+    if val:
+        return True_
+    else:
+        return False_
+
 
 class NaturalLit(int, Value):
+
     def __new__(cls, val):
         if val < 0:
             raise ValueError("%s < 0" % val)
@@ -27,8 +139,13 @@ class NaturalLit(int, Value):
     def __repr__(self):
         return f"{self.__class__.__name__}({int.__repr__(self)})"
 
+    def quote(self, ctx=None, normalize=False):
+        from .term import NaturalLit
+        return NaturalLit(int(self))
+
 
 class IntegerLit(int, Value):
+
     def __add__(self, other):
         raise TypeError()
 
@@ -44,6 +161,7 @@ class IntegerLit(int, Value):
 
 
 class DoubleLit(float, Value):
+
     def __add__(self, other):
         raise TypeError()
 

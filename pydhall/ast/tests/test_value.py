@@ -38,4 +38,3 @@ def test_double_lit():
     assert str(d) == "0.1"
     assert v.DoubleLit(0.1) == v.DoubleLit(0.1)
     assert v.DoubleLit(0.1) != v.DoubleLit(0.2)
-

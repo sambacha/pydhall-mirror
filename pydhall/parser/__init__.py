@@ -10,6 +10,7 @@ from pydhall.ast.fetchable import ImportHashed, EnvVar, LocalFile
 from pydhall.ast.term import (
     Annot,
     Binding,
+    BoolLit,
     Builtin,
     Chunk,
     DoubleLit,
@@ -17,14 +18,17 @@ from pydhall.ast.term import (
     If,
     Import,
     IntegerLit,
+    Kind,
     Let,
     Merge,
     NaturalLit,
     Op,
     Some,
+    Sort,
     Term,
     TextLit,
     ToMap,
+    Type,
     Var,
 )
 
@@ -756,7 +760,18 @@ class Dhall(Parser):
         return self.emit(BlockComment, self.p_flatten(value))
 
     def on_Reserved(self, result):
-        return self.emit(Builtin, self.p_flatten(result))
+        result = self.p_flatten(result)
+        if result == "True":
+            return self.emit(BoolLit, True)
+        if result == "False":
+            return self.emit(BoolLit, False)
+        if result == "Type":
+            return self.emit(Type)
+        if result == "Kind":
+            return self.emit(Kind)
+        if result == "Sort":
+            return self.emit(Sort)
+        return self.emit(Builtin, result)
 
     def on_Path(self, result):
         return str(Path().joinpath(result))
