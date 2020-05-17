@@ -28,7 +28,7 @@ def hash(args):
         sys.stderr.write(str(e))
         sys.stderr.write("\n")
         sys.exit(1)
-    print(module.sha256())
+    print(module.eval().quote(normalize=True).sha256())
 
 
 if __name__ == "__main__":

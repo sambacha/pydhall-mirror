@@ -1,4 +1,7 @@
+from copy import deepcopy
 from hashlib import sha256
+
+import cbor
 
 
 class Node:
@@ -33,9 +36,15 @@ class Node:
                     ) for attr in self.hash_attrs
                 ]), offset)
 
+    def __deepcopy__(self, memo):
+        return self.__class__(*[deepcopy(getattr(self, a), memo)
+                                for a in self.hash_attrs])
+
 
 class Term(Node):
     _type = None
+    _eval = None
+    _cbor_idx = None
 
     def type(self, ctx=None):
         if self._type is None:
@@ -43,14 +52,24 @@ class Term(Node):
         return self._type
 
     def eval(self, env=None):
-        raise NotImplementedError(f"{self.__class__.__name__}.eval")
+        if self._eval is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.eval")
+        return self._eval
+
+    def cbor_values(self):
+        return [self.eval().as_python()]
 
     def cbor(self):
-        raise NotImplementedError(f"{self.__class__.__name__}.cbor")
+        if self._cbor_idx is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.cbor")
+        return cbor.dumps([self._cbor_idx] + self.cbor_values())
 
     def sha256(self):
         sha = sha256(self.cbor()).hexdigest()
         return f"sha256:{sha}"
+
+    def subst(self, name: str, replacement: "Term", level: int = 0):
+        return self
 
 
 class Fetchable(Node):

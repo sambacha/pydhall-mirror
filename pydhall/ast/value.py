@@ -176,4 +176,10 @@ class DoubleLit(float, Value):
 
 
 class _FreeVar(Value):
-    pass
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
+    def quote(self, ctx=None, normalize=False):
+        from .term import Var
+        return Var(self.name, self.index)

@@ -862,8 +862,12 @@ class Dhall(Parser):
         return self.emit(EnvVar, self.p_flatten(v))
 
     def on_LetBinding(self, _, label, a, v):
-        if a is self.NoMatch:
+        if not a:
             a = None
+        elif a is self.NoMatch:
+            a = None
+        else:
+            a = a[0]
         return self.emit(Binding, label, a, v)
 
     def on_Bindings(self, _, bindings, b):
