@@ -31,7 +31,7 @@ def hash(args):
     print(module.eval().quote(normalize=True).sha256())
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
@@ -43,3 +43,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.func(args)
+
+
+if __name__ == "__main__":
+    main()
