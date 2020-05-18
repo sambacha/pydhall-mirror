@@ -4,20 +4,38 @@ from hashlib import sha256
 import cbor
 
 
-class Node:
-    hash_attrs = []
+class FrozenError(Exception):
+    pass
 
-    def __init__(self, parser=None, offset=None):
+
+class Node():
+    attrs = []
+
+    def __init__(self, *args, parser=None, offset=None, **kwargs):
+        i = 0
+        for a in self.attrs:
+            if a in kwargs:
+                val = kwargs.pop(a)
+            else:
+                val = args[i]
+                i += 1
+            setattr(self, a, val)
         self.offset = offset
         if parser is None:
             self.src = "<string>"
         else:
             self.src = parser.name
 
+    def __setattr__(self, name, value):
+        if not hasattr(self, name) or name in ["__class__"]:
+            super().__setattr__(name, value)
+        else:
+            raise FrozenError(name)
+
     def __hash__(self):
         return hash(
             (self.__class__, self.offset)
-            + tuple(self._hash_attr(attr) for attr in self.hash_attrs))
+            + tuple(self._hash_attr(attr) for attr in self.attrs))
 
     def _hash_attr(self, name):
         attr = getattr(self, name)
@@ -33,12 +51,15 @@ class Node:
         return self.__class__.__name__ + "(%s%s)" % (
             ", ".join(["%s=%s" % (
                     attr, repr(getattr(self, attr))
-                    ) for attr in self.hash_attrs
+                    ) for attr in self.attrs
                 ]), offset)
 
     def __deepcopy__(self, memo):
         return self.__class__(*[deepcopy(getattr(self, a), memo)
-                                for a in self.hash_attrs])
+                                for a in self.attrs])
+
+    def copy(self):
+        return deepcopy(self)
 
 
 class Term(Node):

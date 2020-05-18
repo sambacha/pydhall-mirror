@@ -1,4 +1,3 @@
-from copy import deepcopy
 from functools import reduce
 
 import cbor
@@ -9,14 +8,8 @@ from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
 class If(Term):
-    hash_attrs = ["cond", "true", "false"]
+    attrs = ["cond", "true", "false"]
     _cbor_idx = 14
-
-    def __init__(self, cond, true, false, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.cond = cond
-        self.true = true
-        self.false = false
 
     def eval(self, env=None):
         env = env if env is not None else {}
@@ -44,21 +37,11 @@ class If(Term):
 
 
 class Annot(Term):
-    hash_attrs = ["expr", "annotation"]
-
-    def __init__(self, expr, annotation, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.expr = expr
-        self.annotation = annotation
+    attrs = ["expr", "annotation"]
 
 
 class Var(Term):
-    hash_attrs = ["name", "index"]
-
-    def __init__(self, name, index=0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = name
-        self.index = index
+    attrs = ["name", "index"]
 
     def eval(self, env=None):
         env = env if env is not None else {}
@@ -79,11 +62,7 @@ class Var(Term):
 
 
 class _AtomicLit(Term):
-    hash_attrs = ["value"]
-
-    def __init__(self, value, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.value = value
+    attrs = ["value"]
 
 
 class NaturalLit(_AtomicLit):
@@ -120,55 +99,29 @@ class BoolLit(_AtomicLit):
 
 
 class Chunk(Node):
-    hash_attrs = ["prefix", "expr"]
-
-    def __init__(self, prefix, expr, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.prefix = prefix
-        self.expr = expr
+    attrs = ["prefix", "expr"]
 
 
 class TextLit(Term):
-    hash_attrs = ["chunks", "suffix"]
-
-    def __init__(self, chunks, suffix, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.chunks = chunks
-        self.suffix = suffix
+    attrs = ["chunks", "suffix"]
 
 
 class Import(Term):
-    hash_attrs = ["import_hashed", "import_mode"]
+    attrs = ["import_hashed", "import_mode"]
 
     class Mode:
         Code = 0
         RawText = 1
         Location = 2
 
-    def __init__(self, import_hashed, import_mode=0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.import_hashed = import_hashed
-        self.import_mode = import_mode
-
 
 class Binding(Node):
-    hash_attrs = ["variable", "annotation", "value"]
-
-    def __init__(self, variable, annotation, value, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.variable = variable
-        self.annotation = annotation
-        self.value = value
+    attrs = ["variable", "annotation", "value"]
 
 
 class Let(Term):
-    hash_attrs = ["bindings", "body"]
+    attrs = ["bindings", "body"]
     _cbor_idx = 25
-
-    def __init__(self, bindings, body, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.bindings = bindings
-        self.body = body
 
     def eval(self, env=None):
         env = {} if env is None else dict(env)
@@ -178,7 +131,7 @@ class Let(Term):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else {}
-        let = deepcopy(self)
+        let = self.copy()
         while len(let.bindings) > 0:
             binding = let.bindings.pop(0)
             binding_type = binding.value.type(ctx)
@@ -220,47 +173,23 @@ class Let(Term):
 
 
 class EmptyList(Term):
-    hash_attrs = ["type_"]
-
-    def __init__(self, type, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.type__ = type
+    attrs = ["type_"]
 
 
 class Some(Term):
-    hash_attrs = ["val"]
-
-    def __init__(self, val, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.val = val
+    attrs = ["val"]
 
 
 class ToMap(Term):
-    hash_attrs = ["record", "type_"]
-
-    def __init__(self, record, type=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.record = record
-        self.type_ = type
+    attrs = ["record", "type_"]
 
 
 class Merge(Term):
-    hash_attrs = ["handler", "union", "annotation"]
-
-    def __init__(self, handler, union, annotation=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.handler = handler
-        self.union = union
-        self.annotation = annotation
+    attrs = ["handler", "union", "annotation"]
 
 
 class Op(Term):
-    hash_attrs = ["l", "r"]
-
-    def __init__(self, l, r, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.l = l
-        self.r = r
+    attrs = ["l", "r"]
 
 
 class ImportAltOp(Op):

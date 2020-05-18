@@ -151,31 +151,30 @@ def test_double_quote_text():
         bindings=[
             Binding(
                 variable='a',
-                annotation='',
-                value=NaturalLit(value=42, offset=0)
-                , offset=0
+                annotation=None,
+                value=NaturalLit(value=42, offset=0),
+                offset=0
             )
         ],
-        body=Var(name='a', index=0, offset=0)
-        , offset=0)),
+        body=Var(name='a', index=0, offset=0),
+        offset=0)),
     ("let a = 42 let b = 12 in a",
      Let(
         bindings=[
             Binding(
                 variable='a',
-                annotation='',
-                value=NaturalLit(value=42, offset=0)
-                , offset=0
+                annotation=None,
+                value=NaturalLit(value=42, offset=0),
+                offset=0
             ),
             Binding(
                 variable='b',
-                annotation='',
-                value=NaturalLit(value=12, offset=0)
-                , offset=0
+                annotation=None,
+                value=NaturalLit(value=12, offset=0),
+                offset=0
             ),
         ],
-        body=Var(name='a', index=0, offset=0)
-        , offset=0)),
+        body=Var(name='a', index=0, offset=0), offset=0)),
 ])
 def test_bindings(input, expected):
     assert Dhall.p_parse(input) == expected

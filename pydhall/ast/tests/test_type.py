@@ -10,7 +10,7 @@ from pydhall.ast.value import (Bool, Type, Kind, Sort)
     ("Bool", Type),
 ])
 def test_bool(input, expected):
-    assert Dhall.p_parse(input).type == expected
+    assert Dhall.p_parse(input).type() == expected
 
 
 @pytest.mark.parametrize("input,expected", [
@@ -18,4 +18,4 @@ def test_bool(input, expected):
     ("Kind", Sort),
 ])
 def test_universe(input, expected):
-    assert Dhall.p_parse(input).type == expected
+    assert Dhall.p_parse(input).type() == expected
