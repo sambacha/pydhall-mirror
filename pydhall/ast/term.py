@@ -20,12 +20,20 @@ class TypeContext(dict):
         return LocalVar(name=name, index=len(self.get(name, tuple())))
 
 
+class EvalEnv(dict):
+    def copy(self):
+        return deepcopy(self)
+
+    def insert(self, name, value):
+        self.setdefault(name, []).insert(0, value)
+
+
 class If(Term):
     attrs = ["cond", "true", "false"]
     _cbor_idx = 14
 
     def eval(self, env=None):
-        env = env if env is not None else {}
+        env = env if env is not None else EvalEnv()
         cond = self.cond.eval(env)
         if cond is value.True_:
             return self.true.eval()
@@ -74,6 +82,36 @@ class Lambda(Term):
 
         return pi
 
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        domain = self.type_.eval(env)
+
+        def fn(x: value.Value) -> value.Value:
+            newenv = env.copy()
+            newenv.insert(self.label, x)
+            return self.body.eval(newenv)
+
+        return value._Lambda(self.label, domain, fn)
+
+            
+        # return lambda{
+        #     Label:  t.Label,
+        #     Domain: evalWith(t.Type, e),
+        #     Fn: func(x Value) Value {
+        #         newEnv := env{}
+        #         for k, v := range e {
+        #             newEnv[k] = v
+        #         }
+        #         newEnv[t.Label] = append([]Value{x}, newEnv[t.Label]...)
+        #         return evalWith(t.Body, newEnv)
+        #     },
+        # }
+        #
+    def cbor_values(self):
+        if self.label == "_":
+            return [1, self.type_.cbor_values(), self.body.cbor_values()]
+        return [1, self.label, self.type_.cbor_values(), self.body.cbor_values()]
+
 
 class Pi(Term):
     attrs = ["label", "type_", "body"]
@@ -97,10 +135,10 @@ class Pi(Term):
         assert False
 
     def eval(self, env=None):
-        env = env if env is not None else {}
-        def codomain(val):
-            newenv = deepcopy(env)
-            newenv[self.label] = [val] + newenv.get(self.label, [])
+        env = env if env is not None else EvalEnv()
+        def codomain(x: value.Value) -> value.Value:
+            newenv = env.copy()
+            newenv.insert(self.label, x)
             return self.body.eval(newenv)
         return value.Pi(
             self.label,
@@ -116,7 +154,7 @@ class Var(Term):
     attrs = ["name", "index"]
 
     def eval(self, env=None):
-        env = env if env is not None else {}
+        env = env if env is not None else EvalEnv()
         max_idx = len(env.get(self.name, tuple()))
         if self.index >= max_idx:
             return value._FreeVar(self.name, self.index - max_idx)
@@ -210,9 +248,9 @@ class Let(Term):
     _cbor_idx = 25
 
     def eval(self, env=None):
-        env = {} if env is None else dict(env)
+        env = env.copy() if env is not None else EvalEnv()
         for b in self.bindings:
-            env[b.variable] = [b.value.eval(env)] + list(env.get(b.variable, []))
+            env.insert(b.variable, b.value.eval(env))
         return self.body.eval(env)
 
     def type(self, ctx=None):
@@ -364,6 +402,9 @@ class Universe(Term):
     def cbor_values(self):
         return self.__class__.__name__
 
+    def rebind(self, local, level=0):
+        return self
+
 
 class Sort(Universe):
     @property
@@ -387,6 +428,12 @@ class Builtin(Term):
 
     def __str__(self):
         return self.__class__.__name__
+
+    def rebind(self, local, level=0):
+        return self
+
+    def cbor_values(self):
+        return self.__class__.__name__.strip("_")
 
 
 class _NaturalBuiltinMixin:

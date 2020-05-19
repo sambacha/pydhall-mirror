@@ -209,6 +209,36 @@ class _QuoteVar(Value):
         return Var(self.name, ctx[self.name] - self.index - 1)
 
 
+class _Lambda(Value):
+    def __init__(self, label, domain, fn):
+        self.label = label
+        self.domain = domain
+        self.fn = fn
+
+    def __call__(self, x: Value) -> Value:
+        return self.fn(x)
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        label = "_" if normalize else self.label
+        body_val = self(_QuoteVar(label, ctx.get(label, 0)))
+        from .term import Lambda
+        return Lambda(
+            label,
+            self.domain.quote(ctx, normalize),
+            body_val.quote(ctx.extend(label), normalize)
+        )
+        # label := v.Label
+        # if shouldAlphaNormalize {
+        #     label = "_"
+        # }
+        # bodyVal := v.Call(quoteVar{Name: label, Index: ctx[label]})
+        # return term.Lambda{
+        #     Label: label,
+        #     Type:  quoteWith(ctx, shouldAlphaNormalize, v.Domain),
+        #     Body:  quoteWith(ctx.extend(label), shouldAlphaNormalize, bodyVal),
+        # }
+
 class Pi(Value):
     def __init__(self, label, domain, codomain=None):
         self.label = label

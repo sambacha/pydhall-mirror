@@ -13,6 +13,10 @@ from pydhall import loads
      "sha256:1d8bb5b446ef7ca849c66a5b319d69b1e133b86b0d9f290d423ed0494b0d7c3d"),
     ("forall (_: Type) -> _",
      "sha256:1d8bb5b446ef7ca849c66a5b319d69b1e133b86b0d9f290d423ed0494b0d7c3d"),
+    (r"\(a: Bool) -> a",
+     "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
+    (r"\(_: Bool) -> _",
+     "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
 ])
 def test_sha256(input, expected):
     result = loads(input)
