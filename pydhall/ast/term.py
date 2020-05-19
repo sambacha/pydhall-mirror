@@ -11,7 +11,7 @@ from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 class TypeContext(dict):
     def extend(self, name, value):
         ctx = self.__class__()
-        for k, v in self:
+        for k, v in self.items():
             ctx[k] = list(v)
         ctx.setdefault(name, []).append(value)
         return ctx
@@ -93,20 +93,6 @@ class Lambda(Term):
 
         return value._Lambda(self.label, domain, fn)
 
-            
-        # return lambda{
-        #     Label:  t.Label,
-        #     Domain: evalWith(t.Type, e),
-        #     Fn: func(x Value) Value {
-        #         newEnv := env{}
-        #         for k, v := range e {
-        #             newEnv[k] = v
-        #         }
-        #         newEnv[t.Label] = append([]Value{x}, newEnv[t.Label]...)
-        #         return evalWith(t.Body, newEnv)
-        #     },
-        # }
-        #
     def cbor_values(self):
         if self.label == "_":
             return [1, self.type_.cbor_values(), self.body.cbor_values()]
@@ -146,6 +132,42 @@ class Pi(Term):
             codomain)
 
 
+class App(Term):
+    attrs = ["fn", "arg"]
+
+    @classmethod
+    def build(cls, *args):
+        assert args
+        if len(args) == 1:
+            return args[0]
+        return App.build(App(args[0], args[1]), *args[2:])
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+
+        fn_type = self.fn.type(ctx)
+        arg_type = self.arg.type(ctx)
+        if not isinstance(fn_type, value.Pi):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.NOT_A_FUNCTION)
+        expected_type = fn_type.domain
+        if not expected_type @ arg_type:
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.TYPE_MISMATCH % (
+                expected_type.quote(), arg_type.quote()))
+        return fn_type.codomain(self.arg.eval())
+
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return App(
+            self.fn.subst(name, replacement, level),
+            self.arg.subst(name, replacement, level))
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        return value._App.build(self.fn.eval(env), self.arg.eval(env))
+
+    def cbor_values(self):
+        return [0, self.fn.cbor_values(), self.arg.cbor_values()]
+
+
 class Annot(Term):
     attrs = ["expr", "annotation"]
 
@@ -169,6 +191,10 @@ class Var(Term):
         if self.name == "_":
             return self.index
         return [self.name, self.index]
+
+    def type(self, ctx=None):
+        raise DhallTypeError(
+            TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
 
 
 class LocalVar(Term):
@@ -218,8 +244,8 @@ class BoolLit(_AtomicLit):
     def eval(self, env=None):
         return value.BoolLit(self.value)
 
-    def cbor(self):
-        return cbor.dumps(self.value)
+    def cbor_values(self):
+        return self.value
 
 
 class Chunk(Node):
@@ -255,18 +281,46 @@ class Let(Term):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
+
+        # let := t
         let = self.copy()
+
+        # for len(let.Bindings) > 0 {
         while len(let.bindings) > 0:
+            # binding := let.Bindings[0]
+            # let.Bindings = let.Bindings[1:]
             binding = let.bindings.pop(0)
+
+            # bindingType, err := typeWith(ctx, binding.Value)
+            # if err != nil {
+            #     return nil, err
+            # }
             binding_type = binding.value.type(ctx)
+
+            # if binding.Annotation != nil {
             if binding.annotation is not None:
+                # _, err := typeWith(ctx, binding.Value)
+                # if err != nil {
+                #     return nil, err
+                # }
+                # if !AlphaEquivalent(bindingType, Eval(binding.Annotation)) {
+                #     return nil, mkTypeError(annotMismatch(binding.Annotation, Quote(bindingType)))
+                # }
+                binding.annotation.type(ctx)
                 if not binding_type @ binding.annotation.eval():
                     raise DhallTypeError(
                         TYPE_ERROR_MESSAGE.ANNOT_MISMATCH % (
                             binding.annotation, binding_type.quote()))
+            # }
+
+            # value := Quote(Eval(binding.Value))
+            # let = term.Subst(binding.Variable, value, let).(term.Let)
+            # ctx = ctx.extend(binding.Variable, bindingType)
             value = binding.value.eval().quote()
             let = let.subst(binding.variable, value)
             ctx = ctx.extend(binding.variable, binding_type)
+        # }
+        # return typeWith(ctx, let.Body)
         return let.body.type(ctx)
 
     def subst(self, name: str, replacement: "Term", level: int = 0):

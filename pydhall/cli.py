@@ -11,6 +11,7 @@ def normalize(args):
     try:
         module.type()
     except DhallTypeError as e:
+        raise
         sys.stderr.write("Error: ")
         sys.stderr.write(str(e))
         sys.stderr.write("\n")
@@ -24,6 +25,7 @@ def hash(args):
     try:
         module.type()
     except DhallTypeError as e:
+        raise
         sys.stderr.write("Error: ")
         sys.stderr.write(str(e))
         sys.stderr.write("\n")

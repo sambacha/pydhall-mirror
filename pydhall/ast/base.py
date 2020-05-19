@@ -27,7 +27,7 @@ class Node():
             self.src = parser.name
 
     def __setattr__(self, name, value):
-        if not hasattr(self, name) or name in ["__class__"]:
+        if not hasattr(self, name) or name in ["__class__", "parser", "offset"]:
             super().__setattr__(name, value)
         else:
             raise FrozenError(name)
@@ -97,6 +97,11 @@ class Term(Node):
         return self
 
     def rebind(self, local, level=0):
+        """
+        Find all instances of `local` and replaces them with the equivalent
+        Var. Returns self if nothing is changed, otherwise return a copy of
+        the original term
+        """
         if self._rebindable is None:
             raise NotImplementedError(f"{self.__class__.__name__}.rebind")
         if len(self._rebindable) == 0:

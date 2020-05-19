@@ -9,6 +9,7 @@ from pydhall.ast.node import BlockComment, LineComment
 from pydhall.ast.fetchable import ImportHashed, EnvVar, LocalFile
 from pydhall.ast.term import (
     Annot,
+    App,
     Binding,
     BoolLit,
     Builtin,
@@ -536,7 +537,7 @@ class Dhall(Parser):
     #   return out, nil
     # }
 
-    ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)* { @f }
+    ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)* { on_ApplicationExpression }
     # {
     #           e := f.(Term)
     #           if rest == nil { return e, nil }
@@ -928,3 +929,11 @@ class Dhall(Parser):
 
     def on_ForallExpression(self, _, label, t, body):
         return self.emit(Pi, label, t, body)
+
+    def on_ApplicationExpression(self, _, f, rest):
+        if not rest:
+            return f
+        node = App.build(f, *[r[1] for r in rest])
+        node.parser=self
+        node.offset=self.p_start
+        return node

@@ -209,7 +209,12 @@ class _QuoteVar(Value):
         return Var(self.name, ctx[self.name] - self.index - 1)
 
 
-class _Lambda(Value):
+class Callable(Value):
+    def __call__(self, arg):
+        raise NotImplementedError()
+
+
+class _Lambda(Callable):
     def __init__(self, label, domain, fn):
         self.label = label
         self.domain = domain
@@ -267,4 +272,29 @@ class Pi(Value):
         return Pi(
             label,
             self.domain.quote(ctx, normalize),
-            body_val.quote(ctx.extend(label), normalize))        
+            body_val.quote(ctx.extend(label), normalize))
+
+
+class _App(Value):
+    def __init__(self, fn, arg):
+        self.fn = fn
+        self.arg = arg
+
+    @classmethod
+    def build(cls, *args):
+        assert args
+        if len(args) == 1:
+            return args[0]
+        if isinstance(args[0], Callable):
+            result = args[0](args[1])
+        else:
+            result = _App(args[0], args[1])
+
+        return _App.build(result, *args[2:])
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import App
+        return App(
+            self.fn.quote(ctx, normalize),
+            self.arg.quote(ctx, normalize))

@@ -17,6 +17,8 @@ from pydhall import loads
      "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
     (r"\(_: Bool) -> _",
      "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
+    (r"let fn = \(a: Bool) -> a in fn True",
+     "sha256:27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"),
 ])
 def test_sha256(input, expected):
     result = loads(input)
