@@ -58,14 +58,18 @@ class Node():
         return self.__class__(*[deepcopy(getattr(self, a), memo)
                                 for a in self.attrs])
 
-    def copy(self):
-        return deepcopy(self)
+    def copy(self, **kwargs):
+        new = deepcopy(self)
+        for k, v in kwargs:
+            object.__setattr__(new, k, v)
+        return new
 
 
 class Term(Node):
     _type = None
     _eval = None
     _cbor_idx = None
+    _rebindable = None
 
     def type(self, ctx=None):
         if self._type is None:
@@ -91,6 +95,18 @@ class Term(Node):
 
     def subst(self, name: str, replacement: "Term", level: int = 0):
         return self
+
+    def rebind(self, local, level=0):
+        if self._rebindable is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.rebind")
+        if len(self._rebindable) == 0:
+            return self
+        args = {}
+        for attr_name in self._rebindable:
+            attr = getattr(self, attr_name)
+            if attr is not None:
+                args[attr_name] = attr.rebind(local, level)
+        return self.copy(**args)
 
 
 class Fetchable(Node):

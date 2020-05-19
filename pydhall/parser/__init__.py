@@ -19,10 +19,12 @@ from pydhall.ast.term import (
     Import,
     IntegerLit,
     Kind,
+    Lambda,
     Let,
     Merge,
     NaturalLit,
     Op,
+    Pi,
     Some,
     Sort,
     Term,
@@ -455,17 +457,13 @@ class Dhall(Parser):
     #     / assert _ ':' _1 a:Expression { return Assert{Annotation: a.(Term)}, nil }
     #     / AnnotatedExpression
 
-    LambdaExpression <- Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _ Arrow _ body:Expression
-    # {
-    #           return Lambda{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
-    #       }
+    LambdaExpression <-
+        Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _
+        Arrow _ body:Expression { on_LambdaExpression }
     Bindings <- bindings:LetBinding+ In _1 b:Expression { on_Bindings }
     ForallExpression <-
         Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')'
-        _ Arrow _ body:Expression
-    # {
-    #           return Pi{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
-    #       }
+        _ Arrow _ body:Expression { on_ForallExpression }
     # AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression
     # { return NewAnonPi(o.(Term),e.(Term)), nil }
     MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
@@ -925,4 +923,8 @@ class Dhall(Parser):
     def on_SimpleImport(self, _, i):
         return self.emit(Import, i, Import.Mode.Code)
 
+    def on_LambdaExpression(self, _, label, t, body):
+        return self.emit(Lambda, label, t, body)
 
+    def on_ForallExpression(self, _, label, t, body):
+        return self.emit(Pi, label, t, body)

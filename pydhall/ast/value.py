@@ -1,3 +1,9 @@
+class QuoteContext(dict):
+    def extend(self, name):
+        new = QuoteContext(self)
+        new[name] = self.get(name, 0) + 1
+        return new
+
 class Value:
     def __str__(self):
         return str(self.as_python())
@@ -11,6 +17,9 @@ class Value:
 
     def __matmul__(self, other):
         return self.alpha_equivalent(other)
+
+    def quote(self, ctx=None, normalize=False):
+        raise NotImplementedError(f"{self.__class__.__name__}.quote")
 
 
 class Universe(Value):
@@ -26,6 +35,10 @@ class Universe(Value):
 
     def alpha_equivalent(self, other, level=0):
         return other is self
+
+    def quote(self, ctx=None, normalize=False):
+        from .term import Universe
+        return Universe.from_name(self.name)
 
 
 Sort = Universe("Sort", None)
@@ -44,7 +57,6 @@ class Builtin(Value):
         self.name
 
     def quote(self, ctx=None, normalize=False):
-        # ctx = ctx if ctx is not None else {}
         from .term import Builtin
         return Builtin(self.name)
 
@@ -183,3 +195,46 @@ class _FreeVar(Value):
     def quote(self, ctx=None, normalize=False):
         from .term import Var
         return Var(self.name, self.index)
+
+
+class _QuoteVar(Value):
+
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
+    def quote(self, ctx=None, normalize=False):
+        assert ctx is not None
+        from .term import Var
+        return Var(self.name, ctx[self.name] - self.index - 1)
+
+
+class Pi(Value):
+    def __init__(self, label, domain, codomain=None):
+        self.label = label
+        self.domain = domain
+        self.codomain = codomain
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+
+		# label := v.Label
+		# if shouldAlphaNormalize {
+		# 	label = "_"
+		# }
+        label = "_" if normalize else self.label
+
+		# bodyVal := v.Codomain(quoteVar{Name: label, Index: ctx[label]})
+        body_val = self.codomain(_QuoteVar(label, ctx.get(label, 0)))
+        # print(body_val)
+
+		# return term.Pi{
+		# 	Label: label,
+		# 	Type:  quoteWith(ctx, shouldAlphaNormalize, v.Domain),
+		# 	Body:  quoteWith(ctx.extend(label), shouldAlphaNormalize, bodyVal),
+		# }
+        from .term import Pi
+        return Pi(
+            label,
+            self.domain.quote(ctx, normalize),
+            body_val.quote(ctx.extend(label), normalize))        

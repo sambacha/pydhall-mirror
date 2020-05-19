@@ -15,6 +15,7 @@ from pydhall.ast.term import (
     IntegerLit,
     Let,
     Kind,
+    Lambda,
     NaturalLit,
     PlusOp,
     Sort,
@@ -212,5 +213,26 @@ def test_bool_lit(input, expected):
         offset=0)),
 ])
 def test_operator_expr(input, expected):
+    result = Dhall.p_parse(input)
+    assert result == expected
+
+
+@pytest.mark.parametrize("input,expected", [
+    (r"\( a: A ) -> a",
+     Lambda(
+        label='a',
+        type_=Var(name='A', index=0, offset=0),
+        body=Var(name='a', index=0, offset=0),
+        offset=0)
+     ),
+    ("λ( a : A ) → a",
+     Lambda(
+        label='a',
+        type_=Var(name='A', index=0, offset=0),
+        body=Var(name='a', index=0, offset=0),
+        offset=0)
+     ),
+])
+def test_lambda_expr(input, expected):
     result = Dhall.p_parse(input)
     assert result == expected

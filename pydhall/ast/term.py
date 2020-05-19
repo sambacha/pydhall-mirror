@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import reduce
 
 import cbor
@@ -5,6 +6,18 @@ import cbor
 from .base import Node, Term
 from . import value
 from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+
+
+class TypeContext(dict):
+    def extend(self, name, value):
+        ctx = self.__class__()
+        for k, v in self:
+            ctx[k] = list(v)
+        ctx.setdefault(name, []).append(value)
+        return ctx
+
+    def freshLocal(self, name):
+        return LocalVar(name=name, index=len(self.get(name, tuple())))
 
 
 class If(Term):
@@ -23,7 +36,7 @@ class If(Term):
         return [self.cond, self.true, self.false]
 
     def type(self, ctx=None):
-        ctx = ctx if ctx is not None else {}
+        ctx = ctx if ctx is not None else TypeContext()
         cond = self.cond.type(ctx)
         if cond != value.Bool:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_PREDICATE)
@@ -34,6 +47,101 @@ class If(Term):
         if not t @ f:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MISMATCH)
         return t
+
+
+class Lambda(Term):
+    attrs = ["label", "type_", "body"]
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+        # typecheck the type
+        self.type_.type(ctx)
+
+        argtype = self.type_.eval()
+        pi = value.Pi(self.label, argtype)
+        fresh = ctx.freshLocal(self.label)
+        body = self.body.subst(self.label, fresh)
+        bt = body.type(ctx.extend(self.label, argtype))
+
+        def codomain(val):
+            rebound = bt.quote().rebind(fresh)
+            return rebound.eval({self.label: [val]})
+
+        pi.codomain = codomain
+
+        # typecheck the result
+        pi.quote().type(ctx)
+
+        return pi
+
+
+class Pi(Term):
+    attrs = ["label", "type_", "body"]
+
+    def cbor(self):
+        if self.label == "_":
+            return cbor.dumps([2, "Type", 0])
+        return cbor.dumps([2, self.label, self.type_, self.body])
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+
+        # inUniv, err := typeWith(ctx, t.Type)
+        # if err != nil {
+        #     return nil, err
+        # }
+        type_type = self.type_.type(ctx)
+
+        # i, ok := inUniv.(Universe)
+        # if !ok {
+        #     return nil, mkTypeError(invalidInputType)
+        # }
+        if not isinstance(type_type, value.Universe):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_INPUT_TYPE)
+
+        # freshLocal := ctx.freshLocal(t.Label)
+        fresh = ctx.freshLocal(self.label)
+
+        # outUniv, err := typeWith(
+        #     ctx.extend(t.Label, Eval(t.Type)),
+        #     term.Subst(t.Label, freshLocal, t.Body))
+        # if err != nil {
+        #     return nil, err
+        # }
+        outUniv = self.body.subst(self.label, fresh).type(ctx.extend(self.label, self.type_.eval()))
+
+        # o, ok := outUniv.(Universe)
+        # if !ok {
+        #     return nil, mkTypeError(invalidOutputType)
+        # }
+        if not isinstance(type_type, value.Universe):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_OUPUT_TYPE)
+        if outUniv is value.Type:
+            return value.Type
+        assert False
+        # return functionCheck(i, o), nil
+
+    def eval(self, env=None):
+        env = env if env is not None else {}
+        def codomain(val):
+            newenv = deepcopy(env)
+            newenv[self.label] = [val] + newenv.get(self.label, [])
+            return self.body.eval(newenv)
+        return value.Pi(
+            self.label,
+            self.type_.eval(env),
+            codomain)
+        # return Pi{
+        #     Label:  t.Label,
+        #     Domain: evalWith(t.Type, e),
+        #     Codomain: func(x Value) Value {
+        #         newEnv := env{}
+        #         for k, v := range e {
+        #             newEnv[k] = v
+        #         }
+        #         newEnv[t.Label] = append([]Value{x}, newEnv[t.Label]...)
+        #         return evalWith(t.Body, newEnv)
+        #     }}
 
 
 class Annot(Term):
@@ -50,7 +158,7 @@ class Var(Term):
             return value._FreeVar(self.name, self.index - max_idx)
         return env[self.name][self.index]
 
-    def subst(self, name: str, replacement: "Term", level: int):
+    def subst(self, name: str, replacement: "Term", level: int = 0):
         if self.name == name and self.index == level:
             return replacement
         return self
@@ -59,6 +167,20 @@ class Var(Term):
         if self.name == "_":
             return cbor.dumps(self.index)
         return cbor.dumps([self.name, self.index])
+
+
+class LocalVar(Term):
+    attrs = ["name", "index"]
+
+    def type(self, ctx=None):
+        assert ctx is not None
+        vals = ctx.get(self.name)
+        assert vals is not None
+        try:
+            return vals[self.index]
+        except IndexError:
+            raise DhallTypeError(
+                TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
 
 
 class _AtomicLit(Term):
@@ -130,7 +252,7 @@ class Let(Term):
         return self.body.eval(env)
 
     def type(self, ctx=None):
-        ctx = ctx if ctx is not None else {}
+        ctx = ctx if ctx is not None else TypeContext()
         let = self.copy()
         while len(let.bindings) > 0:
             binding = let.bindings.pop(0)
@@ -142,8 +264,7 @@ class Let(Term):
                             binding.annotation, binding_type.quote()))
             value = binding.value.eval().quote()
             let = let.subst(binding.variable, value)
-            ctx = dict(ctx)
-            ctx.update({binding.variable: binding_type})
+            ctx = ctx.extend(binding.variable, binding_type)
         return let.body.type(ctx)
 
     def subst(self, name: str, replacement: "Term", level: int = 0):
@@ -266,6 +387,16 @@ class Universe(Term):
     def cbor(self):
         return cbor.dumps(self.__class__.__name__)
 
+    @classmethod
+    def from_name(cls, name):
+        if name == "Type":
+            return Type()
+        if name == "Kind":
+            return Kind()
+        if name == "Sort":
+            return Sort()
+        assert False
+
 
 class Sort(Universe):
     @property
@@ -279,6 +410,7 @@ class Kind(Universe):
 
 class Type(Universe):
     _type = value.Kind
+    _eval = value.Type
 
 
 class Builtin(Term):

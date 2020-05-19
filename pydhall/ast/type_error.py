@@ -58,3 +58,4 @@ class TYPE_ERROR_MESSAGE:
     ANNOT_MISMATCH = """Expression doesn't match annotation
 
 Expression of type %s was annotated %s"""
+    UNBOUND_VARIABLE = "Unbound variable: %s"
