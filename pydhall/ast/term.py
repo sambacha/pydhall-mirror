@@ -78,48 +78,23 @@ class Lambda(Term):
 class Pi(Term):
     attrs = ["label", "type_", "body"]
 
-    def cbor(self):
+    def cbor_values(self):
         if self.label == "_":
-            return cbor.dumps([2, "Type", 0])
-        return cbor.dumps([2, self.label, self.type_, self.body])
+            return [2, self.type_.cbor_values(), self.body.cbor_values()]
+        return [2, self.label, self.type_, self.body]
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
-
-        # inUniv, err := typeWith(ctx, t.Type)
-        # if err != nil {
-        #     return nil, err
-        # }
         type_type = self.type_.type(ctx)
-
-        # i, ok := inUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidInputType)
-        # }
         if not isinstance(type_type, value.Universe):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_INPUT_TYPE)
-
-        # freshLocal := ctx.freshLocal(t.Label)
         fresh = ctx.freshLocal(self.label)
-
-        # outUniv, err := typeWith(
-        #     ctx.extend(t.Label, Eval(t.Type)),
-        #     term.Subst(t.Label, freshLocal, t.Body))
-        # if err != nil {
-        #     return nil, err
-        # }
         outUniv = self.body.subst(self.label, fresh).type(ctx.extend(self.label, self.type_.eval()))
-
-        # o, ok := outUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidOutputType)
-        # }
         if not isinstance(type_type, value.Universe):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_OUPUT_TYPE)
         if outUniv is value.Type:
             return value.Type
         assert False
-        # return functionCheck(i, o), nil
 
     def eval(self, env=None):
         env = env if env is not None else {}
@@ -131,17 +106,6 @@ class Pi(Term):
             self.label,
             self.type_.eval(env),
             codomain)
-        # return Pi{
-        #     Label:  t.Label,
-        #     Domain: evalWith(t.Type, e),
-        #     Codomain: func(x Value) Value {
-        #         newEnv := env{}
-        #         for k, v := range e {
-        #             newEnv[k] = v
-        #         }
-        #         newEnv[t.Label] = append([]Value{x}, newEnv[t.Label]...)
-        #         return evalWith(t.Body, newEnv)
-        #     }}
 
 
 class Annot(Term):
@@ -163,10 +127,10 @@ class Var(Term):
             return replacement
         return self
 
-    def cbor(self):
+    def cbor_values(self):
         if self.name == "_":
-            return cbor.dumps(self.index)
-        return cbor.dumps([self.name, self.index])
+            return self.index
+        return [self.name, self.index]
 
 
 class LocalVar(Term):
@@ -397,6 +361,9 @@ class Universe(Term):
             return Sort()
         assert False
 
+    def cbor_values(self):
+        return self.__class__.__name__
+
 
 class Sort(Universe):
     @property
@@ -420,6 +387,11 @@ class Builtin(Term):
 
     def __str__(self):
         return self.__class__.__name__
+
+
+class _NaturalBuiltinMixin:
+    def cbor_values(self):
+        return self.__class__.__name__.replace("Natural", "Natural/")
 
 
 class Double(Builtin):
@@ -458,35 +430,35 @@ class None_(Builtin):
     pass
 
 
-class NaturalBuild(Builtin):
+class NaturalBuild(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalFold(Builtin):
+class NaturalFold(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalIsZero(Builtin):
+class NaturalIsZero(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalEven(Builtin):
+class NaturalEven(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalOdd(Builtin):
+class NaturalOdd(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalToInteger(Builtin):
+class NaturalToInteger(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalShow(Builtin):
+class NaturalShow(_NaturalBuiltinMixin, Builtin):
     pass
 
 
-class NaturalSubtract(Builtin):
+class NaturalSubtract(_NaturalBuiltinMixin, Builtin):
     pass
 
 

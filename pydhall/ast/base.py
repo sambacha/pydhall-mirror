@@ -82,12 +82,12 @@ class Term(Node):
         return self._eval
 
     def cbor_values(self):
-        return [self.eval().as_python()]
+        if self._cbor_idx is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.cbor_values")
+        return [self._cbor_idx, self.eval().as_python()]
 
     def cbor(self):
-        if self._cbor_idx is None:
-            raise NotImplementedError(f"{self.__class__.__name__}.cbor")
-        return cbor.dumps([self._cbor_idx] + self.cbor_values())
+        return cbor.dumps(self.cbor_values())
 
     def sha256(self):
         sha = sha256(self.cbor()).hexdigest()
