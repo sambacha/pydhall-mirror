@@ -73,6 +73,13 @@ class Term(Node):
     _cbor_idx = None
     _rebindable = None
 
+    _cbor_indexes = {}
+
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls._cbor_idx is not None:
+            Term._cbor_indexes[cls._cbor_idx] = cls
+
     def type(self, ctx=None):
         if self._type is None:
             raise NotImplementedError(f"{self.__class__.__name__}.type")
@@ -90,6 +97,20 @@ class Term(Node):
 
     def cbor(self):
         return cbor.dumps(self.cbor_values())
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        if decoded is None:
+            decoded = cbor.loads(encoded)
+        if isinstance(decoded, list):
+            term_cls = cls._cbor_indexes[decoded[0]]
+            # import ipdb; ipdb.set_trace()
+            if term_cls.from_cbor.__func__ is Term.from_cbor.__func__:
+                return term_cls(*decoded[1:])
+            else:
+                return cls.from_cbor(decoded=decoded)
+        elif isinstance(decoded, bool):
+            return Term._cbor_indexes[-1](decoded)
 
     def sha256(self):
         sha = sha256(self.cbor()).hexdigest()

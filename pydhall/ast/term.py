@@ -254,6 +254,7 @@ class LocalVar(Term):
 
 class NonEmptyList(Term):
     attrs = ["content"]
+    _cbor_idx = 4
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -304,6 +305,7 @@ class IntegerLit(_AtomicLit):
 
 class BoolLit(_AtomicLit):
     _type = value.Bool
+    _cbor_idx = -1
 
     def eval(self, env=None):
         return value.BoolLit(self.value)

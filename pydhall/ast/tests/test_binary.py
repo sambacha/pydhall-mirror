@@ -1,6 +1,8 @@
 import pytest
 
 from pydhall import loads
+from pydhall.ast.base import Term
+from pydhall.ast.term import NaturalLit
 
 # this is more of an integration test as the sha256 values
 # are the results of dahll-haskell's hash command.
@@ -27,3 +29,11 @@ from pydhall import loads
 def test_sha256(input, expected):
     result = loads(input)
     assert result.eval().quote(normalize=True).sha256() == expected
+
+
+@pytest.mark.parametrize("input", [
+    NaturalLit(1),
+])
+def test_encode_decode(input):
+    result = Term.from_cbor(input.cbor())
+    assert result == input

@@ -5,6 +5,7 @@ from pydhall.parser import Dhall
 
 def load(fp):
     src = fp.read()
+    print(src)
     return loads(src)
     
 
