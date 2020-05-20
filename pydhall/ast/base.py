@@ -104,13 +104,22 @@ class Term(Node):
             decoded = cbor.loads(encoded)
         if isinstance(decoded, list):
             term_cls = cls._cbor_indexes[decoded[0]]
-            # import ipdb; ipdb.set_trace()
             if term_cls.from_cbor.__func__ is Term.from_cbor.__func__:
-                return term_cls(*decoded[1:])
+                return term_cls(
+                    *[Term.from_cbor(i) for i in decoded[1:]])
             else:
-                return cls.from_cbor(decoded=decoded)
+                return term_cls.from_cbor(decoded=decoded)
         elif isinstance(decoded, bool):
-            return Term._cbor_indexes[-1](decoded)
+            return Term._cbor_indexes[-1](decoded)  # BoolLit
+        elif isinstance(decoded, str):
+            try:
+                return Term._cbor_indexes[-2](decoded)  # Builtin
+            except KeyError:
+                return Term._cbor_indexes[-4](*decoded)
+        elif isinstance(decoded, float):
+            return Term._cbor_indexes[-3](decoded)  # DoubleLit
+        assert False
+
 
     def sha256(self):
         sha = sha256(self.cbor()).hexdigest()

@@ -215,6 +215,7 @@ class Annot(Term):
 
 class Var(Term):
     attrs = ["name", "index"]
+    _cbor_idx = -4
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
@@ -279,6 +280,11 @@ class NonEmptyList(Term):
 class _AtomicLit(Term):
     attrs = ["value"]
 
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        if decoded is None:
+            decoded = cbor.loads(encoded)
+        return cls(decoded[1])
 
 class NaturalLit(_AtomicLit):
     _type = value.Natural
@@ -290,6 +296,7 @@ class NaturalLit(_AtomicLit):
 
 class DoubleLit(_AtomicLit):
     _type = value.Double
+    _cbor_idx = -3
 
     def eval(self, env=None):
         return value.DoubleLit(self.value)
@@ -433,91 +440,144 @@ class Merge(Term):
 
 class Op(Term):
     attrs = ["l", "r"]
+    _cbor_idx = 3
+
+    _cbor_op_indexes = {}
+
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        Op._cbor_indexes[cls._op_idx] = cls
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        if decoded is None:
+            decoded = cbor.loads(encoded)
+        return cls._cbor_op_indexes[decoded[1]](
+            *[Term.from_cbor(i) for i in decoded[2:]])
 
 
 class ImportAltOp(Op):
     precedence = 10
     operators = ("?",)
+    _op_idx = 11
 
 
 class OrOp(Op):
     precedence = 20
     operators = ("||",)
+    _op_idx = 0
 
 
 class PlusOp(Op):
     precedence = 30
     operators = ("+",)
+    _op_idx = 4
 
 
 class TextAppendOp(Op):
     precedence = 40
     operators = ("++",)
+    _op_idx = 6
 
 
 class ListAppendOp(Op):
     precedence = 50
     operators = ("#",)
+    _op_idx = 7
 
 
 class AndOp(Op):
     precedence = 60
     operators = ("&&",)
+    _op_idx = 1
 
 
 class RecordMergeOp(Op):
     precedence = 70
     operators = ("∧", "/\\")
+    _op_idx = 8
 
 
 class RightBiasedRecordMergeOp(Op):
     precedence = 80
     operators = ("⫽", "//")
+    _op_idx = 9
 
 
 class RecordTypeMergeOp(Op):
     precedence = 90
     operators = ("⩓", r"//\\")
+    _op_idx = 10
 
 
 class TimesOp(Op):
     precedence = 100
     operators = ("*",)
+    _op_idx = 5
 
 
 class EqOp(Op):
     precedence = 110
     operators = ("==",)
+    _op_idx = 2
 
 
 class NeOp(Op):
     precedence = 120
     operators = ("!=",)
+    _op_idx = 3
 
 
 class EquivOp(Op):
     precedence = 130
     operators = ("≡", "===")
+    _op_idx = 12
 
 
 class CompleteOp(Op):
     precedence = 140
     operators = ("::",)
+    _op_idx = 13
 
 
-class Universe(Term):
+class Builtin(Term):
+    _cbor_idx = -2
+    _by_name = {}
+    _literal_name = None
+
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls._literal_name is not None:
+            key = cls._literal_name
+        else:
+            key = cls.__name__.strip("_")
+        Builtin._by_name[key] = cls
+
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__class__ = Builtin._by_name[name]
+
+    def __str__(self):
+        return self.__class__.__name__
+
+    def rebind(self, local, level=0):
+        return self
+
+    def cbor_values(self):
+        return self.__class__.__name__.strip("_")
+
+
+class Universe(Builtin):
+
+    def __init__(self, *args, **kwargs):
+        Term.__init__(self, *args, **kwargs)
+
     def cbor(self):
         return cbor.dumps(self.__class__.__name__)
 
     @classmethod
     def from_name(cls, name):
-        if name == "Type":
-            return Type()
-        if name == "Kind":
-            return Kind()
-        if name == "Sort":
-            return Sort()
-        assert False
+        return Builtin(name)
 
     def cbor_values(self):
         return self.__class__.__name__
@@ -539,21 +599,6 @@ class Kind(Universe):
 class Type(Universe):
     _type = value.Kind
     _eval = value.Type
-
-
-class Builtin(Term):
-    def __init__(self, name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__class__ = _builtin_cls[name]
-
-    def __str__(self):
-        return self.__class__.__name__
-
-    def rebind(self, local, level=0):
-        return self
-
-    def cbor_values(self):
-        return self.__class__.__name__.strip("_")
 
 
 class _NaturalBuiltinMixin:
@@ -598,95 +643,95 @@ class None_(Builtin):
 
 
 class NaturalBuild(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/build"
 
 
 class NaturalFold(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/fold"
 
 
 class NaturalIsZero(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/isZero"
 
 
 class NaturalEven(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/even"
 
 
 class NaturalOdd(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/odd"
 
 
 class NaturalToInteger(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/toInteger"
 
 
 class NaturalShow(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/show"
 
 
 class NaturalSubtract(_NaturalBuiltinMixin, Builtin):
-    pass
+    _literal_name = "Natural/substract"
 
 
 class IntegerClamp(Builtin):
-    pass
+    _literal_name = "Integer/clamp"
 
 
 class IntegerNegate(Builtin):
-    pass
+    _literal_name = "Integer/negate"
 
 
 class IntegerToDouble(Builtin):
-    pass
+    _literal_name = "Integer/toDouble"
 
 
 class IntegerShow(Builtin):
-    pass
+    _literal_name = "Integer/show"
 
 
 class DoubleShow(Builtin):
-    pass
+    _literal_name = "Double/show"
 
 
 class TextShow(Builtin):
-    pass
+    _literal_name = "Text/show"
 
 
 class ListBuild(Builtin):
-    pass
+    _literal_name = "List/build"
 
 
 class ListFold(Builtin):
-    pass
+    _literal_name = "List/fold"
 
 
 class ListLength(Builtin):
-    pass
+    _literal_name = "List/length"
 
 
 class ListHead(Builtin):
-    pass
+    _literal_name = "List/head"
 
 
 class ListLast(Builtin):
-    pass
+    _literal_name = "List/last"
 
 
 class ListIndexed(Builtin):
-    pass
+    _literal_name = "List/indexed"
 
 
 class ListReverse(Builtin):
-    pass
+    _literal_name = "List/reverse"
 
 
 class OptionalBuild(Builtin):
-    pass
+    _literal_name = "Optional/build"
 
 
 class OptionalFold(Builtin):
-    pass
+    _literal_name = "Optional/fold"
 
 
 _builtin_cls = {

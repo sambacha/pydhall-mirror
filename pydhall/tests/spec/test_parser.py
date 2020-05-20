@@ -4,6 +4,7 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
+from pydhall.ast.base import Term
 
 from . import FAILURES
 
@@ -40,8 +41,11 @@ def make_success_params(root):
     root = Path(root).joinpath("success")
     return make_test_file_pairs(root)
 
-
+# @pytest.mark.skip()
 @pytest.mark.parametrize("input,expected", make_success_params(TEST_DATA_ROOT))
 def test_parse_success(input, expected):
     with open(input) as f:
         termA = Dhall.p_parse(f.read())
+    with open(expected, "rb") as f:
+        assert termA.cbor() == f.read()
+
