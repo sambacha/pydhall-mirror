@@ -5,6 +5,7 @@ FAILURES = [
     "dhall-lang/tests/alpha-normalization/success/unit/FunctionNestedBindingXY",
     "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeBindingUnderscore",
     "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeBindingX",
+    "dhall-lang/tests/alpha-normalization/success/unit/FunctionBindingX",
     "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeNestedBindingX",
 ]
 
