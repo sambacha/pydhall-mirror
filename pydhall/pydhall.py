@@ -3,7 +3,12 @@
 from pydhall.parser import Dhall
 
 
-def loads(src):
-    result = Dhall.p_parse(src)
+def load(fp):
+    src = fp.read()
+    return loads(src)
+    
+
+def loads(s):
+    result = Dhall.p_parse(s)
     result.type()
     return result
