@@ -17,6 +17,7 @@ from pydhall.ast.term import (
     Kind,
     Lambda,
     NaturalLit,
+    NonEmptyList,
     PlusOp,
     Sort,
     TextLit,
@@ -234,5 +235,19 @@ def test_operator_expr(input, expected):
      ),
 ])
 def test_lambda_expr(input, expected):
+    result = Dhall.p_parse(input)
+    assert result == expected
+
+
+@pytest.mark.parametrize("input,expected", [
+    ("[1,2]",
+     NonEmptyList(
+        content=[
+            NaturalLit(value=1, offset=0),
+            NaturalLit(value=2, offset=0)
+        ],
+        offset=0)),
+])
+def test_non_empty_list(input, expected):
     result = Dhall.p_parse(input)
     assert result == expected

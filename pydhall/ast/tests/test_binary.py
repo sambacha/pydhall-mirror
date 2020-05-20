@@ -5,8 +5,6 @@ from pydhall import loads
 # this is more of an integration test as the sha256 values
 # are the results of dahll-haskell's hash command.
 @pytest.mark.parametrize("input,expected", [
-    ("True",
-     "sha256:27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"),
     ("42",
      "sha256:c39cde2e11e3d5a57cccbc06f6599256ece67b3d16d1bc1df1d0cfa79d9be605"),
     ("forall (a: Type) -> a",
@@ -17,8 +15,14 @@ from pydhall import loads
      "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
     (r"\(_: Bool) -> _",
      "sha256:400a629db0d5af895d438acf74d60a07c0315c88b17cd541ae182d7dfc3247d6"),
+    ("True",
+     "sha256:27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"),
     (r"let fn = \(a: Bool) -> a in fn True",
      "sha256:27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"),
+    (r"let fn = \(a: Bool) -> \(b: Bool) -> a in fn True False",
+     "sha256:27abdeddfe8503496adeb623466caa47da5f63abd2bc6fa19f6cfcb73ecfed70"),
+    ("[1,2]",
+     "sha256:5fcae452b143221b8500ae6ff76efa56105d702e413e4365ee20a4c93226d224"),
 ])
 def test_sha256(input, expected):
     result = loads(input)

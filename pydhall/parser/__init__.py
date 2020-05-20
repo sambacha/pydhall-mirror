@@ -24,6 +24,7 @@ from pydhall.ast.term import (
     Let,
     Merge,
     NaturalLit,
+    NonEmptyList,
     Op,
     Pi,
     Some,
@@ -538,14 +539,6 @@ class Dhall(Parser):
     # }
 
     ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)* { on_ApplicationExpression }
-    # {
-    #           e := f.(Term)
-    #           if rest == nil { return e, nil }
-    #           for _, arg := range rest.([]interface{}) {
-    #               e = Apply(e, arg.([]interface{})[1].(Term))
-    #           }
-    #           return e,nil
-    #       }
 
     MergeExpr <- Merge _1 h:ImportExpression _1 u:ImportExpression { on_MergeExpr }
     SomeExpr <- Some _1 e:ImportExpression { on_SomeExpr } # { return Some{e.(Term)}, nil }
@@ -702,7 +695,6 @@ class Dhall(Parser):
     #         if _, ok := alternatives[name]; ok {
     #             return nil, fmt.Errorf("Duplicate alternative %s in union", name)
     #         }
-
     #         if alternative[1] == nil {
     #             alternatives[name] = nil
     #         } else {
@@ -716,7 +708,7 @@ class Dhall(Parser):
 
     MoreList ← ',' _ e:Expression _ { @e }
 
-    NonEmptyListLiteral ← '[' _ (',' _)? first:Expression _ rest:MoreList* ']'
+    NonEmptyListLiteral ← '[' _ (',' _)? first:Expression _ rest:MoreList* ']' { on_NonEmptyList }
     # {
     #           exprs := rest.([]interface{})
     #           content := make(NonEmptyList, len(exprs)+1)
@@ -937,3 +929,6 @@ class Dhall(Parser):
         node.parser=self
         node.offset=self.p_start
         return node
+
+    def on_NonEmptyList(self, _, first, rest):
+        return self.emit(NonEmptyList, [first] + rest)

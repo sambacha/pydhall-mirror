@@ -64,3 +64,6 @@ Expression of type %s was annotated %s"""
 expected %s but got %s"""
 
     UNBOUND_VARIABLE = "Unbound variable: %s"
+    MISMATCH_LIST_ELEMENTS = """List elements should all have the same type
+
+first element had type %s but there was an element of type %s"""

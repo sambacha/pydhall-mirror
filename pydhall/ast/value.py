@@ -233,16 +233,6 @@ class _Lambda(Callable):
             self.domain.quote(ctx, normalize),
             body_val.quote(ctx.extend(label), normalize)
         )
-        # label := v.Label
-        # if shouldAlphaNormalize {
-        #     label = "_"
-        # }
-        # bodyVal := v.Call(quoteVar{Name: label, Index: ctx[label]})
-        # return term.Lambda{
-        #     Label: label,
-        #     Type:  quoteWith(ctx, shouldAlphaNormalize, v.Domain),
-        #     Body:  quoteWith(ctx.extend(label), shouldAlphaNormalize, bodyVal),
-        # }
 
 class Pi(Value):
     def __init__(self, label, domain, codomain=None):
@@ -253,21 +243,8 @@ class Pi(Value):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
 
-		# label := v.Label
-		# if shouldAlphaNormalize {
-		# 	label = "_"
-		# }
         label = "_" if normalize else self.label
-
-		# bodyVal := v.Codomain(quoteVar{Name: label, Index: ctx[label]})
         body_val = self.codomain(_QuoteVar(label, ctx.get(label, 0)))
-        # print(body_val)
-
-		# return term.Pi{
-		# 	Label: label,
-		# 	Type:  quoteWith(ctx, shouldAlphaNormalize, v.Domain),
-		# 	Body:  quoteWith(ctx.extend(label), shouldAlphaNormalize, bodyVal),
-		# }
         from .term import Pi
         return Pi(
             label,
@@ -298,3 +275,18 @@ class _App(Value):
         return App(
             self.fn.quote(ctx, normalize),
             self.arg.quote(ctx, normalize))
+
+
+class ListOf(Value):
+    def __init__(self, type_):
+        self.type_ = type_
+
+
+class NonEmptyList(Value):
+    def __init__(self, content):
+        self.content = content
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import NonEmptyList
+        return NonEmptyList([e.quote(ctx, normalize) for e in self.content])

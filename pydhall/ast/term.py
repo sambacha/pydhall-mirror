@@ -62,6 +62,9 @@ class Lambda(Term):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
+        # print(repr(self))
+        # print(ctx)
+        # print("--------------------------------------")
         # typecheck the type
         self.type_.type(ctx)
 
@@ -73,7 +76,7 @@ class Lambda(Term):
 
         def codomain(val):
             rebound = bt.quote().rebind(fresh)
-            return rebound.eval({self.label: [val]})
+            return rebound.eval(EvalEnv({self.label: [val]}))
 
         pi.codomain = codomain
 
@@ -97,6 +100,20 @@ class Lambda(Term):
         if self.label == "_":
             return [1, self.type_.cbor_values(), self.body.cbor_values()]
         return [1, self.label, self.type_.cbor_values(), self.body.cbor_values()]
+
+    def subst(self, name, replacement, level=0):
+        body_level = level + 1 if self.label == name else level
+        return Lambda(
+            self.label,
+            self.type_.subst(name, replacement, level),
+            self.body.subst(name, replacement, body_level))
+
+    def rebind(self, local, level=0):
+        body_level = level + 1 if self.label == local.name else level
+        return Lambda(
+            self.label,
+            self.type_.rebind(local, level),
+            self.body.rebind(local, body_level))
 
 
 class Pi(Term):
@@ -130,6 +147,20 @@ class Pi(Term):
             self.label,
             self.type_.eval(env),
             codomain)
+
+    def subst(self, name, replacement, level=0):
+        body_level = level + 1 if self.label == name else level
+        return Pi(
+            self.label,
+            self.type_.subst(name, replacement, level),
+            self.body.subst(name, replacement, body_level))
+
+    def rebind(self, local, level=0):
+        body_level = level + 1 if self.label == local.name else level
+        return Pi(
+            self.label,
+            self.type_.rebind(local, level),
+            self.body.rebind(local, body_level))
 
 
 class App(Term):
@@ -166,6 +197,16 @@ class App(Term):
 
     def cbor_values(self):
         return [0, self.fn.cbor_values(), self.arg.cbor_values()]
+
+    def subst(self, name, replacement, level=0):
+        return App(
+            self.fn.subst(name, replacement, level),
+            self.arg.subst(name, replacement, level))
+
+    def rebind(self, local, level=0):
+        return App(
+            self.fn.rebind(local, level),
+            self.arg.rebind(local, level))
 
 
 class Annot(Term):
@@ -209,6 +250,29 @@ class LocalVar(Term):
         except IndexError:
             raise DhallTypeError(
                 TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
+
+
+class NonEmptyList(Term):
+    attrs = ["content"]
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+
+        t0 = self.content[0].type(ctx)
+        t0.quote().assertType(value.Type, ctx, TYPE_ERROR_MESSAGE.INVALID_LIST_TYPE)
+        for e in self.content[1:]:
+            t1  = e.type(ctx)
+            if not t0 @ t1:
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISMATCH_LIST_ELEMENTS % ( t0.quote(), t1.quote()))
+
+        return value.ListOf(t0)
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        return value.NonEmptyList([e.eval(env) for e in self.content])
+
+    def cbor_values(self):
+        return [4, None] + [e.cbor_values() for e in self.content]
 
 
 class _AtomicLit(Term):

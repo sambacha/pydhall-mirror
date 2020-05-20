@@ -3,6 +3,8 @@ from hashlib import sha256
 
 import cbor
 
+from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+
 
 class FrozenError(Exception):
     pass
@@ -112,6 +114,11 @@ class Term(Node):
             if attr is not None:
                 args[attr_name] = attr.rebind(local, level)
         return self.copy(**args)
+
+    def assertType(self, expected, ctx, msg):
+        tp = self.type(ctx)
+        if not tp @ expected:
+            raise DhallTypeError(msg)
 
 
 class Fetchable(Node):
