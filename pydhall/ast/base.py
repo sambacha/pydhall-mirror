@@ -1,5 +1,6 @@
 from copy import deepcopy
 from hashlib import sha256
+from functools import reduce
 
 import cbor
 
@@ -149,6 +150,24 @@ class Term(Node):
         tp = self.type(ctx)
         if not tp @ expected:
             raise DhallTypeError(msg)
+
+    def format_dhall(self):
+        raise NotImplementedError(f"{self.__class__.__name__}.format_dhall")
+
+    def dhall(self):
+        format = self.format_dhall()
+        # print(format)
+        def reduce_format(agg, elem=None):
+            if isinstance(agg, tuple):
+                agg = reduce(reduce_format, agg)
+            if elem is None:
+                return agg
+            if isinstance(elem, tuple):
+                return f"{agg} {reduce(reduce_format, elem)}"
+            else:
+                return f"{agg} {elem}"
+        return reduce(reduce_format, format)
+
 
 
 class Fetchable(Node):

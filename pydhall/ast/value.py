@@ -13,7 +13,7 @@ class Value:
         cls(value)
 
     def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
-        raise NotImplementedError(f"{self.__class__.name}.alpha_equivalent")
+        raise NotImplementedError(f"{self.__class__.__name__}.alpha_equivalent")
 
     def __matmul__(self, other):
         return self.alpha_equivalent(other)
@@ -71,7 +71,16 @@ Natural = Builtin("Natural")
 Integer = Builtin("Integer")
 
 
-class _False(Value):
+class BoolLit(Value):
+    "Marker class for boolean literal"
+    def __init__(self, val):
+        self.__class__ = val and _True or _False
+
+    def __eq__(self, other):
+        return other.__class__ == self.__class__
+
+
+class _False(BoolLit):
     type = Bool
 
     def as_python(self):
@@ -94,10 +103,10 @@ class _False(Value):
         return BoolLit(False)
 
 
-False_ = _False()
+False_ = BoolLit(False)
 
 
-class _True(Value):
+class _True(BoolLit):
     type = Bool
 
     def as_python(self):
@@ -120,14 +129,22 @@ class _True(Value):
         return BoolLit(True)
 
 
-True_ = _True()
+True_ = BoolLit(True)
 
 
-def BoolLit(val):
-    if val:
-        return True_
-    else:
-        return False_
+class _IfVal(Value):
+    def __init__(self, cond, true, false):
+        self.cond = cond
+        self.true = true
+        self.false = false
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import If
+        return If(
+            self.cond.quote(ctx, normalize),
+            self.true.quote(ctx, normalize),
+            self.false.quote(ctx, normalize))
 
 
 class NaturalLit(int, Value):
@@ -155,6 +172,9 @@ class NaturalLit(int, Value):
         from .term import NaturalLit
         return NaturalLit(int(self))
 
+    def alpha_equivalent(self, other, level=0):
+        return self == other
+
 
 class IntegerLit(int, Value):
 
@@ -170,6 +190,9 @@ class IntegerLit(int, Value):
 
     def __repr__(self):
         return f"{self.__class__.__name__}({int.__repr__(self)})"
+
+    def alpha_equivalent(self, other, level=0):
+        return self == other
 
 
 class DoubleLit(float, Value):
@@ -196,6 +219,9 @@ class _FreeVar(Value):
         from .term import Var
         return Var(self.name, self.index)
 
+    def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
+        return other.__class__ is _FreeVar and self.index == other.index and self.name == other.name
+
 
 class _QuoteVar(Value):
 
@@ -207,6 +233,22 @@ class _QuoteVar(Value):
         assert ctx is not None
         from .term import Var
         return Var(self.name, ctx[self.name] - self.index - 1)
+
+    def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
+        return other.__class__ is _QuoteVar and self.index == other.index and self.name == other.name
+
+
+class _LocalVar(Value):
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
+    def quote(self, ctx=None, normalize=False):
+        from .term import LocalVar
+        return LocalVar(self.name, self.index)
+
+    def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
+        return other.__class__ is _LocalVar and self.index == other.index and self.name == other.name
 
 
 class Callable(Value):
@@ -228,11 +270,13 @@ class _Lambda(Callable):
         label = "_" if normalize else self.label
         body_val = self(_QuoteVar(label, ctx.get(label, 0)))
         from .term import Lambda
+        # print(repr(body_val))
         return Lambda(
             label,
             self.domain.quote(ctx, normalize),
             body_val.quote(ctx.extend(label), normalize)
         )
+
 
 class Pi(Value):
     def __init__(self, label, domain, codomain=None):
@@ -246,10 +290,12 @@ class Pi(Value):
         label = "_" if normalize else self.label
         body_val = self.codomain(_QuoteVar(label, ctx.get(label, 0)))
         from .term import Pi
-        return Pi(
+        res = Pi(
             label,
             self.domain.quote(ctx, normalize),
             body_val.quote(ctx.extend(label), normalize))
+        # print(repr(res))
+        return res
 
 
 class _App(Value):
@@ -290,3 +336,22 @@ class NonEmptyList(Value):
         ctx = ctx if ctx is not None else QuoteContext()
         from .term import NonEmptyList
         return NonEmptyList([e.quote(ctx, normalize) for e in self.content])
+
+
+class _Op(Value):
+    def __init__(self, l, r):
+        self.l = l
+        self.r = r
+
+
+class _NeOp(_Op):
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import NeOp
+        return NeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
+
+class _AndOp(_Op):
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import AndOp
+        return AndOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))

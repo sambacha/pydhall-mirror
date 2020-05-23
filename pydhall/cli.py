@@ -16,7 +16,7 @@ def normalize(args):
         sys.stderr.write(str(e))
         sys.stderr.write("\n")
         sys.exit(1)
-    print(module.eval())
+    print(module.eval().quote(normalize=True).dhall())
 
 
 def hash(args):

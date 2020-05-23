@@ -67,3 +67,4 @@ expected %s but got %s"""
     MISMATCH_LIST_ELEMENTS = """List elements should all have the same type
 
 first element had type %s but there was an element of type %s"""
+    CANT_OP = "❰%s❱ only works on ❰%s❱s"

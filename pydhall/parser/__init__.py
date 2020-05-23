@@ -13,6 +13,7 @@ from pydhall.ast.term import (
     Binding,
     BoolLit,
     Builtin,
+    CompleteOp,
     Chunk,
     DoubleLit,
     EmptyList,
@@ -466,8 +467,7 @@ class Dhall(Parser):
     ForallExpression <-
         Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')'
         _ Arrow _ body:Expression { on_ForallExpression }
-    # AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression
-    # { return NewAnonPi(o.(Term),e.(Term)), nil }
+    AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression { on_AnonPiExpression }
     MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
     IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
     Expression <-
@@ -475,7 +475,7 @@ class Dhall(Parser):
         / IfExpression
         / Bindings
         / ForallExpression
-        # / AnonPiExpression
+        / AnonPiExpression
         / MergeExpression
         / EmptyList
         / AnnotatedExpression
@@ -550,7 +550,7 @@ class Dhall(Parser):
 
     ImportExpression ← Import / CompletionExpression
 
-    CompletionExpression ← first:SelectorExpression rest:(_ Complete _ SelectorExpression)? { on_Op }
+    CompletionExpression ← first:SelectorExpression rest:(_ Complete _ SelectorExpression)? { on_CompletionExpression }
 
     SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)* { @e }
     # {
@@ -876,6 +876,11 @@ class Dhall(Parser):
             out = self.emit(self.op_classes[r[1]], out, r[3])
         return out
 
+    def on_CompletionExpression(self, _, first, rest):
+        if not rest:
+            return first
+        return self.emit(CompleteOp, first, rest[3]) 
+
     def on_MergeExpr(self, _, h, u, a=None):
         return self.emit(Merge, h, u, a=None)
 
@@ -932,3 +937,6 @@ class Dhall(Parser):
 
     def on_NonEmptyList(self, _, first, rest):
         return self.emit(NonEmptyList, [first] + rest)
+
+    def on_AnonPiExpression(self, _, o, e):
+        return self.emit(Pi, "_", o, e)

@@ -30,15 +30,24 @@ class EvalEnv(dict):
 
 class If(Term):
     attrs = ["cond", "true", "false"]
+    _rebindable = ["cond", "true", "false"]
     _cbor_idx = 14
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
         cond = self.cond.eval(env)
-        if cond is value.True_:
-            return self.true.eval()
-        if cond is value.False_:
-            return self.false.eval()
+        # print(repr(cond))
+        if cond == value.True_:
+            return self.true.eval(env)
+        elif cond == value.False_:
+            return self.false.eval(env)
+        t = self.true.eval(env)
+        f = self.false.eval(env)
+        if t == value.True_ and f == value.False_:
+            return cond
+        if t @ f:
+            return t
+        return value._IfVal(cond, t, f)
 
     def cbor_values(self):
         return [self.cond, self.true, self.false]
@@ -48,13 +57,23 @@ class If(Term):
         cond = self.cond.type(ctx)
         if cond != value.Bool:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_PREDICATE)
-        t = self.true.type()
-        f = self.false.type()
-        if t.quote().type() != value.Type or f.quote().type() != value.Type:
+        t = self.true.type(ctx)
+        f = self.false.type(ctx)
+        if t.quote().type(ctx) != value.Type or f.quote().type(ctx) != value.Type:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MUST_BE_TERM)
         if not t @ f:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MISMATCH)
         return t
+
+    def subst(self, name, replacement, level=0):
+        return If(
+            self.cond.subst(name, replacement, level),
+            self.true.subst(name, replacement, level),
+            self.false.subst(name, replacement, level),
+        )
+
+    def format_dhall(self):
+        return (("if", self.cond.format_dhall()), ("then", self.true.format_dhall()), ("else", self.false.format_dhall()))
 
 
 class Lambda(Term):
@@ -72,6 +91,7 @@ class Lambda(Term):
         pi = value.Pi(self.label, argtype)
         fresh = ctx.freshLocal(self.label)
         body = self.body.subst(self.label, fresh)
+        # print(ctx.extend(self.label, argtype))
         bt = body.type(ctx.extend(self.label, argtype))
 
         def codomain(val):
@@ -92,7 +112,9 @@ class Lambda(Term):
         def fn(x: value.Value) -> value.Value:
             newenv = env.copy()
             newenv.insert(self.label, x)
-            return self.body.eval(newenv)
+            result = self.body.eval(newenv)
+            # print(repr(result))
+            return result
 
         return value._Lambda(self.label, domain, fn)
 
@@ -114,6 +136,9 @@ class Lambda(Term):
             self.label,
             self.type_.rebind(local, level),
             self.body.rebind(local, body_level))
+
+    def format_dhall(self):
+        return (f"λ({self.label} : {self.type_.dhall()} ) →", self.body.format_dhall())
 
 
 class Pi(Term):
@@ -215,6 +240,7 @@ class Annot(Term):
 
 class Var(Term):
     attrs = ["name", "index"]
+    _rebindable = []
     _cbor_idx = -4
 
     def eval(self, env=None):
@@ -238,6 +264,10 @@ class Var(Term):
         raise DhallTypeError(
             TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
 
+    def format_dhall(self):
+        index = "" if not self.index else f"@{self.index}"
+        return (f"{self.name}{index}",)
+
 
 class LocalVar(Term):
     attrs = ["name", "index"]
@@ -251,6 +281,14 @@ class LocalVar(Term):
         except IndexError:
             raise DhallTypeError(
                 TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
+
+    def eval(self, env=None):
+        return value._LocalVar(self.name, self.index)
+
+    def rebind(self, local, level=0):
+        if local.name == self.name and local.index == self.index:
+            return Var(self.name, level)
+        return self
 
 
 class NonEmptyList(Term):
@@ -285,6 +323,9 @@ class _AtomicLit(Term):
         if decoded is None:
             decoded = cbor.loads(encoded)
         return cls(decoded[1])
+
+    def format_dhall(self):
+        return (str(self.value),)
 
 class NaturalLit(_AtomicLit):
     _type = value.Natural
@@ -355,45 +396,21 @@ class Let(Term):
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
-        # let := t
         let = self.copy()
 
-        # for len(let.Bindings) > 0 {
         while len(let.bindings) > 0:
-            # binding := let.Bindings[0]
-            # let.Bindings = let.Bindings[1:]
             binding = let.bindings.pop(0)
-
-            # bindingType, err := typeWith(ctx, binding.Value)
-            # if err != nil {
-            #     return nil, err
-            # }
             binding_type = binding.value.type(ctx)
 
-            # if binding.Annotation != nil {
             if binding.annotation is not None:
-                # _, err := typeWith(ctx, binding.Value)
-                # if err != nil {
-                #     return nil, err
-                # }
-                # if !AlphaEquivalent(bindingType, Eval(binding.Annotation)) {
-                #     return nil, mkTypeError(annotMismatch(binding.Annotation, Quote(bindingType)))
-                # }
                 binding.annotation.type(ctx)
                 if not binding_type @ binding.annotation.eval():
                     raise DhallTypeError(
                         TYPE_ERROR_MESSAGE.ANNOT_MISMATCH % (
                             binding.annotation, binding_type.quote()))
-            # }
-
-            # value := Quote(Eval(binding.Value))
-            # let = term.Subst(binding.Variable, value, let).(term.Let)
-            # ctx = ctx.extend(binding.Variable, bindingType)
             value = binding.value.eval().quote()
             let = let.subst(binding.variable, value)
             ctx = ctx.extend(binding.variable, binding_type)
-        # }
-        # return typeWith(ctx, let.Body)
         return let.body.type(ctx)
 
     def subst(self, name: str, replacement: "Term", level: int = 0):
@@ -440,6 +457,7 @@ class Merge(Term):
 
 class Op(Term):
     attrs = ["l", "r"]
+    _rebindable = ["l", "r"]
     _cbor_idx = 3
 
     _cbor_op_indexes = {}
@@ -455,6 +473,21 @@ class Op(Term):
         return cls._cbor_op_indexes[decoded[1]](
             *[Term.from_cbor(i) for i in decoded[2:]])
 
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+        self.r.assertType(self._type, ctx, TYPE_ERROR_MESSAGE.CANT_OP % (self.operators[0], self._type.__class__.__name__))
+        self.l.assertType(self._type, ctx, TYPE_ERROR_MESSAGE.CANT_OP % (self.operators[0], self._type.__class__.__name__))
+        return self._type
+
+    def cbor_values(self):
+        return [3, self._op_idx, self.l.cbor_values(), self.r.cbor_values()]
+
+    def subst(self, name: str, replacement: "Term", level: int = 0):
+        return self.__class__(
+            self.l.subst(name, replacement, level),
+            self.r.subst(name, replacement, level),
+        )
+
 
 class ImportAltOp(Op):
     precedence = 10
@@ -466,18 +499,35 @@ class OrOp(Op):
     precedence = 20
     operators = ("||",)
     _op_idx = 0
+    _type = value.Bool
 
 
 class PlusOp(Op):
     precedence = 30
     operators = ("+",)
     _op_idx = 4
+    _type = value.Natural
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        l = self.l.eval(env)
+        r = self.r.eval(env)
+        if isinstance(l, value.NaturalLit):
+            if isinstance(r, value.NaturalLit):
+                return value.NaturalLit(l + r)
+            if l == 0:
+                return r
+        if isinstance(r, value.NaturalLit):
+            if r == 0:
+                return l
+        return value._PlusOp(l,r)
 
 
 class TextAppendOp(Op):
     precedence = 40
     operators = ("++",)
     _op_idx = 6
+    _type = value.Text
 
 
 class ListAppendOp(Op):
@@ -490,6 +540,26 @@ class AndOp(Op):
     precedence = 60
     operators = ("&&",)
     _op_idx = 1
+    _type = value.Bool
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        l = self.l.eval(env)
+        r = self.r.eval(env)
+        if isinstance(l, value.BoolLit):
+            if l:
+                return r
+            return False
+        if isinstance(r, value.BoolLit):
+            if r:
+                return l
+            return False
+        if l @ r:
+            return l
+        return value._AndOp(l,r)
+
+    def format_dhall(self):
+        return (self.l.format_dhall(), "&&", self.r.format_dhall())
 
 
 class RecordMergeOp(Op):
@@ -514,18 +584,33 @@ class TimesOp(Op):
     precedence = 100
     operators = ("*",)
     _op_idx = 5
+    _type = value.Natural
 
 
 class EqOp(Op):
     precedence = 110
     operators = ("==",)
     _op_idx = 2
+    _type = value.Bool
 
 
 class NeOp(Op):
     precedence = 120
     operators = ("!=",)
     _op_idx = 3
+    _type = value.Bool
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        l = self.l.eval(env)
+        r = self.r.eval(env)
+        if isinstance(l, value.BoolLit) and not l:
+            return r
+        if isinstance(r, value.BoolLit) and not r:
+            return l
+        if l @ r:
+            return BoolLit(False)
+        return value._NeOp(l,r)
 
 
 class EquivOp(Op):
@@ -565,6 +650,10 @@ class Builtin(Term):
 
     def cbor_values(self):
         return self.__class__.__name__.strip("_")
+
+    def format_dhall(self):
+        name = self._literal_name if self._literal_name is not None else self.__class__.__name__.strip("_")
+        return (name,)
 
 
 class Universe(Builtin):
@@ -608,10 +697,12 @@ class _NaturalBuiltinMixin:
 
 class Double(Builtin):
     _type = value.Type
+    _eval = value.Double
 
 
 class Text(Builtin):
     _type = value.Type
+    _eval = value.Text
 
 
 class Bool(Builtin):
@@ -624,10 +715,12 @@ class Bool(Builtin):
 
 class Natural(Builtin):
     _type = value.Type
+    _eval = value.Natural
 
 
 class Integer(Builtin):
     _type = value.Type
+    _eval = value.Integer
 
 
 class List(Builtin):

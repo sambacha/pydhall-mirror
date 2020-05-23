@@ -1,12 +1,5 @@
 FAILURES = [
     # alpha normalization
-    "dhall-lang/tests/alpha-normalization/success/regression/preludeBoolFold", # AttributeError: 'NoneType' object has no attribute 'quote'
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionNestedBindingX", # NotImplementedError: Natural.eval
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionNestedBindingXX", # NotImplementedError: AndOp.eval
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionNestedBindingXY", # NotImplementedError: AndOp.eval
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeBindingUnderscore", # parsing error on A
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeBindingX", # parsing on B
-    "dhall-lang/tests/alpha-normalization/success/unit/FunctionTypeNestedBindingX", # parsing on A
 
     # parser
     "dhall-lang/tests/parser/success/quotedLabel",
@@ -35,7 +28,7 @@ FAILURES = [
     "dhall-lang/tests/parser/success/unit/import/pathHere",
     "dhall-lang/tests/parser/success/unit/MergeAnnotation",
     "dhall-lang/tests/parser/success/unit/ToMap",
-    "dhall-lang/tests/parser/success/unit/FunctionTypeArrow",
+    # "dhall-lang/tests/parser/success/unit/FunctionTypeArrow",
     "dhall-lang/tests/parser/success/unit/Assert",
     "dhall-lang/tests/parser/success/unit/MergeXYZ",
     "dhall-lang/tests/parser/success/unit/AssertPrecedence",
@@ -44,7 +37,7 @@ FAILURES = [
     "dhall-lang/tests/parser/success/unit/MergeParenAnnotation",
     "dhall-lang/tests/parser/success/unit/MergeAnnotationPrecedence",
     "dhall-lang/tests/parser/success/unit/AssertEquivalenceUnicode",
-    "dhall-lang/tests/parser/success/unit/Completion",
+    # "dhall-lang/tests/parser/success/unit/Completion",
     "dhall-lang/tests/parser/success/unit/AssertEquivalence",
     "dhall-lang/tests/parser/success/unit/WithPrecedence3",
     "dhall-lang/tests/parser/success/unit/operators/PrecedenceRecord",
@@ -60,14 +53,11 @@ FAILURES = [
     "dhall-lang/tests/parser/success/merge",
     "dhall-lang/tests/parser/success/text/nonAssignedUnicode",
     "dhall-lang/tests/parser/success/text/escapedDoubleQuotedString",
-    "dhall-lang/tests/parser/success/functionType",
+    # "dhall-lang/tests/parser/success/functionType",
     "dhall-lang/tests/parser/success/quotedUnionLabel",
     "dhall-lang/tests/parser/success/builtinNameAsField",
     "dhall-lang/tests/parser/success/quotedRecordLabel",
     "dhall-lang/tests/parser/success/usingToMap",
-
-
-
     "dhall-lang/tests/parser/success/leadingTabs",
     "dhall-lang/tests/parser/success/missingInParentheses",
     "dhall-lang/tests/parser/success/builtins",
@@ -155,7 +145,7 @@ FAILURES = [
     "dhall-lang/tests/parser/success/unit/SelectionSome",
     "dhall-lang/tests/parser/success/unit/FieldBuiltinName",
     "dhall-lang/tests/parser/success/unit/LetAnnot",
-    "dhall-lang/tests/parser/success/unit/Let",
+    # "dhall-lang/tests/parser/success/unit/Let",
     "dhall-lang/tests/parser/success/unit/DoubleLitInfinity",
     "dhall-lang/tests/parser/success/unit/DoubleLitExponentNegative",
     "dhall-lang/tests/parser/success/unit/RecordLit",
@@ -175,30 +165,30 @@ FAILURES = [
     "dhall-lang/tests/parser/success/unit/RecordFieldAccess",
     "dhall-lang/tests/parser/success/unit/RecordLitDuplicates",
     "dhall-lang/tests/parser/success/unit/operators/PrecedenceEquivalence",
-    "dhall-lang/tests/parser/success/unit/operators/PrecedenceBool",
-    "dhall-lang/tests/parser/success/unit/operators/NaturalPlus",
-    "dhall-lang/tests/parser/success/unit/operators/Equivalence",
-    "dhall-lang/tests/parser/success/unit/operators/BoolNEAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/ImportAlt",
-    "dhall-lang/tests/parser/success/unit/operators/ListAppendAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/BoolOr",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeUnicode",
-    "dhall-lang/tests/parser/success/unit/operators/NaturalTimesAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/BoolEQAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/ListAppend",
-    "dhall-lang/tests/parser/success/unit/operators/TextAppend",
-    "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeUnicode",
-    "dhall-lang/tests/parser/success/unit/operators/ImportAltAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/BoolAndAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/BoolEQ",
-    "dhall-lang/tests/parser/success/unit/operators/BoolOrAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/NaturalPlusAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/TextAppendAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/NaturalTimes",
-    "dhall-lang/tests/parser/success/unit/operators/BoolAnd",
-    "dhall-lang/tests/parser/success/unit/operators/BoolNE",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeUnicode",
-    "dhall-lang/tests/parser/success/unit/operators/PrecedenceNat",
+    # "dhall-lang/tests/parser/success/unit/operators/PrecedenceBool",
+    # "dhall-lang/tests/parser/success/unit/operators/NaturalPlus",
+    # "dhall-lang/tests/parser/success/unit/operators/Equivalence",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolNEAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/ImportAlt",
+    # "dhall-lang/tests/parser/success/unit/operators/ListAppendAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolOr",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeUnicode",
+    # "dhall-lang/tests/parser/success/unit/operators/NaturalTimesAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolEQAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/ListAppend",
+    # "dhall-lang/tests/parser/success/unit/operators/TextAppend",
+    # "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeUnicode",
+    # "dhall-lang/tests/parser/success/unit/operators/ImportAltAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolAndAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolEQ",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolOrAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/NaturalPlusAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/TextAppendAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/NaturalTimes",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolAnd",
+    # "dhall-lang/tests/parser/success/unit/operators/BoolNE",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeUnicode",
+    # "dhall-lang/tests/parser/success/unit/operators/PrecedenceNat",
     "dhall-lang/tests/parser/success/unit/DoubleLitPositive",
     "dhall-lang/tests/parser/success/operators",
     "dhall-lang/tests/parser/success/annotations",
@@ -226,6 +216,5 @@ FAILURES = [
     "dhall-lang/tests/parser/success/text/multilineCorruptedLeadingWhitespace",
     "dhall-lang/tests/parser/success/list",
     "dhall-lang/tests/parser/success/hexadecimal",
-
 ]
 
