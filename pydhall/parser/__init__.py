@@ -28,6 +28,8 @@ from pydhall.ast.term import (
     NonEmptyList,
     Op,
     Pi,
+    RecordLit,
+    RecordType,
     Some,
     Sort,
     Term,
@@ -601,9 +603,9 @@ class Dhall(Parser):
         / Identifier
         / Paren
 
-    EmptyRecord <- "="
+    EmptyRecord <- "=" { on_EmptyRecord }
     # '=' { return RecordLit{}, nil }
-    EmptyRecordType <- ""
+    EmptyRecordType <- "" { on_EmptyRecordType }
     # "" { return RecordType{}, nil }
     RecordTypeOrLiteral ←
         EmptyRecord
@@ -612,66 +614,15 @@ class Dhall(Parser):
         / EmptyRecordType
 
     MoreRecordType ← _ ',' _ f:RecordTypeEntry { @f }
-    NonEmptyRecordType ← first:RecordTypeEntry rest:MoreRecordType*
-    # {
-    #           fields := rest.([]interface{})
-    #           content := first.(RecordType)
-    #           for _, field := range fields {
-    #               for k, v := range field.(RecordType) {
-    #                   if _, ok := content[k]; ok {
-    #                       return nil, fmt.Errorf("Duplicate field %s in record", k)
-    #                   }
-    #                   content[k] = v
-    #               }
-    #           }
-    #           return content, nil
-    #       }
-
+    NonEmptyRecordType ← first:RecordTypeEntry rest:MoreRecordType* { on_NonEmptyRecordType }
     RecordTypeEntry ← name:AnyLabelOrSome _ ':' _1 expr:Expression
-    # {
-    #     return RecordType{name.(string): expr.(Term)}, nil
-    # }
 
     MoreRecordLiteral ← _ ',' _ f:RecordLiteralEntry { @f }
-    NonEmptyRecordLiteral ← first:RecordLiteralEntry rest:MoreRecordLiteral*
-    #       {
-    #           fields := rest.([]interface{})
-    #           content := first.(RecordLit)
-    #           for _, field := range fields {
-    #               for k, v := range field.(RecordLit) {
-    #                   if _, ok := content[k]; ok {
-    #                       content[k] = Op{
-    #                           OpCode: RecordMergeOp,
-    #                           L: content[k],
-    #                           R: v,
-    #                       }
-    #                   } else {
-    #                       content[k] = v
-    #                   }
-    #               }
-    #           }
-    #           return content, nil
-    #       }
+    NonEmptyRecordLiteral ← first:RecordLiteralEntry rest:MoreRecordLiteral* { on_NonEmptyRecordLiteral }
 
-    RecordLiteralEntry ← name:AnyLabelOrSome val:(RecordLiteralNormalEntry / RecordLiteralPunnedEntry)
-    # {
-    #     if _, ok := val.([]byte); ok {
-    #         // punned entry
-    #         return RecordLit{name.(string): Var{Name: name.(string)}}, nil
-    #     }
-    #     return RecordLit{name.(string): val.(Term)}, nil
-    # }
+    RecordLiteralEntry ← name:AnyLabelOrSome val:(RecordLiteralNormalEntry / RecordLiteralPunnedEntry) { on_RecordLiteralEntry }
 
-    RecordLiteralNormalEntry ← children:(_ '.' _ AnyLabelOrSome)* _ '=' _ expr:Expression
-    # {
-    #     rest := expr.(Term)
-    #     for i := len(children.([]interface{}))-1; i>=0; i-- {
-    #         child := children.([]interface{})[i].([]interface{})[3].(string)
-    #         rest = RecordLit{child: rest}
-    #     }
-    #     return rest, nil
-    # }
-
+    RecordLiteralNormalEntry ← children:(_ '.' _ AnyLabelOrSome)* _ '=' _ expr:Expression { on_RecordLiteralNormalEntry }
     RecordLiteralPunnedEntry ← ""
 
     UnionType ← NonEmptyUnionType / EmptyUnionType
@@ -940,3 +891,38 @@ class Dhall(Parser):
 
     def on_AnonPiExpression(self, _, o, e):
         return self.emit(Pi, "_", o, e)
+
+    def on_EmptyRecord(self, _):
+        return self.emit(RecordLit, {})
+
+    def on_EmptyRecordType(self, _):
+        return self.emit(RecordType, {})
+
+    def on_NonEmptyRecordType(self, _, first, rest):
+        content = { first[0]: first[4] }
+        for f in rest:
+            if f[0] in content:
+                raise ValueError("Duplicate Field")
+            content[f[0]] = f[4]
+        return self.emit(RecordType, content)
+
+    def on_NonEmptyRecordLiteral(self, _, first, rest):
+        content = first
+        for f in rest:
+            for k, v in f.items():
+                if k in content:
+                    content[k] = RecordMergeOp(content[k], v)
+                else:
+                    content[k] = v
+        return content
+
+    def on_RecordLiteralEntry(self, _, name, val):
+        if val == "":
+            return self.emit(RecordLit, {name: Var(name)})
+        return self.emit(RecordLit, {name: val})
+
+    def on_RecordLiteralNormalEntry(self, _, children, expr):
+        rest = expr
+        for c in reversed(children):
+            rest = RecordLit({c[3]: rest})
+        return rest

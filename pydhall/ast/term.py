@@ -28,6 +28,24 @@ class EvalEnv(dict):
         self.setdefault(name, []).insert(0, value)
 
 
+class RecordLit(dict, Term):
+    def __init__(self, fields, *args, **kwargs):
+        Term.__init__(self, *args, **kwargs)
+        dict.__init__(self, fields)
+
+    def cbor_values(self):
+        return [8, {k: self[k].cbor_values() for k in sorted(list(self.keys()))}]
+
+
+class RecordType(dict, Term):
+    def __init__(self, fields, *args, **kwargs):
+        Term.__init__(self, *args, **kwargs)
+        dict.__init__(self, fields)
+
+    def cbor_values(self):
+        return [7, {k: self[k].cbor_values() for k in sorted(list(self.keys()))}]
+
+
 class If(Term):
     attrs = ["cond", "true", "false"]
     _rebindable = ["cond", "true", "false"]
@@ -50,7 +68,7 @@ class If(Term):
         return value._IfVal(cond, t, f)
 
     def cbor_values(self):
-        return [self.cond, self.true, self.false]
+        return [14, self.cond.cbor_values(), self.true.cbor_values(), self.false.cbor_values()]
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -147,7 +165,7 @@ class Pi(Term):
     def cbor_values(self):
         if self.label == "_":
             return [2, self.type_.cbor_values(), self.body.cbor_values()]
-        return [2, self.label, self.type_, self.body]
+        return [2, self.label, self.type_.cbor_values(), self.body.cbor_values()]
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -236,6 +254,9 @@ class App(Term):
 
 class Annot(Term):
     attrs = ["expr", "annotation"]
+
+    def cbor_values(self):
+        return [26, self.expr.cbor_values(), self.annotation.cbor_values()]
 
 
 class Var(Term):
@@ -369,6 +390,13 @@ class Chunk(Node):
 class TextLit(Term):
     attrs = ["chunks", "suffix"]
 
+    def cbor_values(self):
+        out = [18]
+        for c in self.chunks:
+            out.append(c.prefix, c.expr.cbor_values())
+        out.append(self.suffix)
+        return out
+
 
 class Import(Term):
     attrs = ["import_hashed", "import_mode"]
@@ -432,11 +460,11 @@ class Let(Term):
     def cbor_values(self):
         bindings = reduce(
             lambda a, b: a + b,
-            [[b.variable, b.annotation, b.value] for b in self.bindings])
+            [[b.variable, b.annotation.cbor_values(), b.value.cbor_values()] for b in self.bindings])
         if isinstance(self.body, Let):
-            return bindings + self.body.cbor_values()
+            return [25] + bindings + self.body.cbor_values()
         else:
-            return bindings + [self.body]
+            return [25] + bindings + [self.body.cbor_values()]
 
 
 class EmptyList(Term):
@@ -649,7 +677,10 @@ class Builtin(Term):
         return self
 
     def cbor_values(self):
-        return self.__class__.__name__.strip("_")
+        if self._literal_name is not None:
+            return self._literal_name
+        else:
+            return self.__class__.__name__.strip("_")
 
     def format_dhall(self):
         name = self._literal_name if self._literal_name is not None else self.__class__.__name__.strip("_")
@@ -691,8 +722,7 @@ class Type(Universe):
 
 
 class _NaturalBuiltinMixin:
-    def cbor_values(self):
-        return self.__class__.__name__.replace("Natural", "Natural/")
+    pass
 
 
 class Double(Builtin):

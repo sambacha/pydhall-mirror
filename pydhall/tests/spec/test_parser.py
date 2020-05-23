@@ -47,5 +47,7 @@ def test_parse_success(input, expected):
     with open(input) as f:
         termA = Dhall.p_parse(f.read())
     with open(expected, "rb") as f:
+        assert isinstance(termA, Term)
+        # print(termA.cbor_values())
         assert termA.cbor() == f.read()
 
