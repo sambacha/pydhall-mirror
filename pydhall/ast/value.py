@@ -22,6 +22,16 @@ class Value:
         raise NotImplementedError(f"{self.__class__.__name__}.quote")
 
 
+class RecordLit(dict, Value):
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import RecordLit
+        for k, v in self.items():
+            print(k)
+            print(repr(v.quote(ctx, normalize)))
+        return RecordLit({k: v.quote(ctx, normalize) for k, v in self.items()})
+
+
 class Universe(Value):
     def __init__(self, name, type):
         self.name = name
@@ -191,6 +201,10 @@ class IntegerLit(int, Value):
     def __repr__(self):
         return f"{self.__class__.__name__}({int.__repr__(self)})"
 
+    def quote(self, ctx=None, normalize=False):
+        from .term import IntegerLit
+        return IntegerLit(int(self))
+
     def alpha_equivalent(self, other, level=0):
         return self == other
 
@@ -318,6 +332,9 @@ class _App(Value):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
         from .term import App
+        print("-------------")
+        print(repr(self.fn))
+        print(repr(self.arg))
         return App(
             self.fn.quote(ctx, normalize),
             self.arg.quote(ctx, normalize))
@@ -338,6 +355,31 @@ class NonEmptyList(Value):
         return NonEmptyList([e.quote(ctx, normalize) for e in self.content])
 
 
+class Some(Value):
+    def __init__(self, value: Value):
+        self.value = value
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import Some
+        return Some(self.value.quote(ctx, normalize=False))
+
+
+class OptionalOf(Value):
+    def __init__(self, type_):
+        self.type_ = type_
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import App, Optional
+        return App.build(Optional(), self.type_.quote(ctx, normalize))
+
+
+class NoneOf(Value):
+    def __init__(self, type_):
+        self.type_ = type_
+
+
 class _Op(Value):
     def __init__(self, l, r):
         self.l = l
@@ -355,3 +397,18 @@ class _AndOp(_Op):
         ctx = ctx if ctx is not None else QuoteContext()
         from .term import AndOp
         return AndOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
+
+
+class _OptionalBuild(Callable):
+    def __init__(self, type_=None):
+        self.type_ = type_
+
+    def __call__(self, x: Value) -> Value:
+        if self.type_ == None:
+            return _OptionalBuild(x)
+        some = _Lambda("a", self.type_, lambda a: Some(a))
+        return _App.build(x, OptionalOf(self.type_), some, NoneOf(self.type_))
+
+
+
+OptionalBuild = _OptionalBuild()

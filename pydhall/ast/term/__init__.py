@@ -3,9 +3,9 @@ from functools import reduce
 
 import cbor
 
-from .base import Node, Term
-from . import value
-from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from ..base import Node, Term
+from .. import value
+from ..type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
 class TypeContext(dict):
@@ -35,6 +35,10 @@ class RecordLit(dict, Term):
 
     def cbor_values(self):
         return [8, {k: self[k].cbor_values() for k in sorted(list(self.keys()))}]
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        return value.RecordLit({k: v.eval(env) for k, v in self.items()})
 
 
 class RecordType(dict, Term):
@@ -239,6 +243,8 @@ class App(Term):
         return value._App.build(self.fn.eval(env), self.arg.eval(env))
 
     def cbor_values(self):
+        print(repr(self.fn))
+        print(repr(self.arg))
         return [0, self.fn.cbor_values(), self.arg.cbor_values()]
 
     def subst(self, name, replacement, level=0):
@@ -356,14 +362,6 @@ class NaturalLit(_AtomicLit):
         return value.NaturalLit(self.value)
 
 
-class DoubleLit(_AtomicLit):
-    _type = value.Double
-    _cbor_idx = -3
-
-    def eval(self, env=None):
-        return value.DoubleLit(self.value)
-
-
 class IntegerLit(_AtomicLit):
     _type = value.Integer
     _cbor_idx = 16
@@ -473,6 +471,9 @@ class EmptyList(Term):
 
 class Some(Term):
     attrs = ["val"]
+
+    def cbor_values(self):
+        return [5, None, self.val.cbor_values()]
 
 
 class ToMap(Term):
@@ -621,6 +622,18 @@ class EqOp(Op):
     _op_idx = 2
     _type = value.Bool
 
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        l = self.l.eval(env)
+        r = self.r.eval(env)
+        if isinstance(l, value.BoolLit) and l:
+            return r
+        if isinstance(r, value.BoolLit) and r:
+            return l
+        if l @ r:
+            return BoolLit(True)
+        return value._EqOp(l,r)
+
 
 class NeOp(Op):
     precedence = 120
@@ -666,9 +679,10 @@ class Builtin(Term):
             key = cls.__name__.strip("_")
         Builtin._by_name[key] = cls
 
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, name=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__class__ = Builtin._by_name[name]
+        if name is not None:
+            self.__class__ = Builtin._by_name[name]
 
     def __str__(self):
         return self.__class__.__name__
@@ -851,6 +865,7 @@ class ListReverse(Builtin):
 
 class OptionalBuild(Builtin):
     _literal_name = "Optional/build"
+    _eval = value.OptionalBuild
 
 
 class OptionalFold(Builtin):
