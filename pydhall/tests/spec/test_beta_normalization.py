@@ -9,7 +9,7 @@ from pydhall.ast.term import Term
 from . import FAILURES
 
 
-TEST_DATA_ROOT = Path("dhall-lang/tests/parser/")
+TEST_DATA_ROOT = Path("dhall-lang/tests/normalization/")
 
 
 def make_test_file_pairs(dir):
@@ -37,17 +37,23 @@ def make_test_file_pairs(dir):
     return pairs
 
 
-def make_success_params(root):
-    root = Path(root).joinpath("success")
-    return make_test_file_pairs(root)
+def make_success_simple_params(root):
+    simpleroot = Path(root).joinpath("success/simple")
+    unitroot = Path(root).joinpath("success/unit")
+    return make_test_file_pairs(root) + make_test_file_pairs(unitroot)
 
 # @pytest.mark.skip()
-@pytest.mark.parametrize("input,expected", make_success_params(TEST_DATA_ROOT))
-def test_parse_success(input, expected):
+@pytest.mark.parametrize("input,expected", make_success_simple_params(TEST_DATA_ROOT))
+def test_parse_success_simple(input, expected):
     with open(input) as f:
         termA = Dhall.p_parse(f.read())
-    with open(expected, "rb") as f:
-        assert isinstance(termA, Term)
-        # print(termA.cbor_values())
-        assert termA.cbor() == f.read()
+    with open(expected) as f:
+        termB = Dhall.p_parse(f.read())
 
+    # TODO: bypasses incomplete parsing. remove this
+    # if not isinstance(termA, Term):
+    #     return
+
+    termA.type()
+
+    assert termA.eval().quote() == termB.eval().quote()

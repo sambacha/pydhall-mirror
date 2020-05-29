@@ -1,10 +1,13 @@
 FAILURES = [
-    # alpha normalization
+    # Beta-norm
+    "dhall-lang/tests/normalization/success/remoteSystems",
+    "dhall-lang/tests/normalization/success/WithRecordValue",
 
     # parser
     # easy
-    "dhall-lang/tests/parser/success/quotedLabel",
+    # "dhall-lang/tests/parser/success/quotedLabel",
     "dhall-lang/tests/parser/success/whitespaceBuffet",
+
 
     "dhall-lang/tests/parser/success/toMap",
     "dhall-lang/tests/parser/success/largeExpression",
@@ -43,15 +46,15 @@ FAILURES = [
     "dhall-lang/tests/parser/success/unit/AssertEquivalence",
     "dhall-lang/tests/parser/success/unit/WithPrecedence3",
     "dhall-lang/tests/parser/success/unit/operators/PrecedenceRecord",
-    "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeUnicodeAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMerge",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMerge",
-    "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMerge",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeUnicodeAssoc",
-    "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeUnicodeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeUnicodeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMergeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMerge",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMerge",
+    # "dhall-lang/tests/parser/success/unit/operators/RightBiasedRecordMerge",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordMergeUnicodeAssoc",
+    # "dhall-lang/tests/parser/success/unit/operators/RecursiveRecordTypeMergeUnicodeAssoc",
     "dhall-lang/tests/parser/success/merge",
     "dhall-lang/tests/parser/success/text/nonAssignedUnicode",
     "dhall-lang/tests/parser/success/text/escapedDoubleQuotedString",
@@ -115,7 +118,7 @@ FAILURES = [
     # "dhall-lang/tests/parser/success/unit/RecordType",
     "dhall-lang/tests/parser/success/unit/UnionTypeXTY",
     # "dhall-lang/tests/parser/success/unit/FunctionTypePi",
-    "dhall-lang/tests/parser/success/unit/SomeX",
+    # "dhall-lang/tests/parser/success/unit/SomeX",
     "dhall-lang/tests/parser/success/unit/ListLitEmpty1",
     "dhall-lang/tests/parser/success/unit/UnionTypeXY",
     "dhall-lang/tests/parser/success/unit/UnionTypeSome",

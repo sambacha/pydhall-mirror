@@ -1,7 +1,7 @@
 import pytest
 
 from pydhall import loads
-from pydhall.ast.base import Term
+from pydhall.ast.term import Term
 from pydhall.ast.term import NaturalLit
 
 # this is more of an integration test as the sha256 values

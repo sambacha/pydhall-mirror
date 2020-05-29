@@ -1,4 +1,4 @@
-from .base import Fetchable
+from .term.base import Fetchable
 
 
 class EnvVar(Fetchable):

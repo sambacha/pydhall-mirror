@@ -11,6 +11,7 @@ from pydhall.ast.node import BlockComment, LineComment
 from pydhall.ast.term import (
     Binding,
     BoolLit,
+    CompleteOp,
     DoubleLit,
     IntegerLit,
     Let,
@@ -249,5 +250,12 @@ def test_lambda_expr(input, expected):
         offset=0)),
 ])
 def test_non_empty_list(input, expected):
+    result = Dhall.p_parse(input)
+    assert result == expected
+
+@pytest.mark.parametrize("input,expected", [
+    ("{=} // {a = 2}", CompleteOp(l={}, r={'a': NaturalLit(value=2, offset=0)}, offset=0))
+])
+def test_record_complete(input, expected):
     result = Dhall.p_parse(input)
     assert result == expected

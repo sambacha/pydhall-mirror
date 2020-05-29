@@ -1,4 +1,4 @@
-from .base import Node
+from .term.base import Node
 
 
 class Comment(Node):

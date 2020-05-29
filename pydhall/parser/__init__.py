@@ -17,6 +17,7 @@ from pydhall.ast.term import (
     Chunk,
     DoubleLit,
     EmptyList,
+    Field,
     If,
     Import,
     IntegerLit,
@@ -28,6 +29,7 @@ from pydhall.ast.term import (
     NonEmptyList,
     Op,
     Pi,
+    Project,
     RecordLit,
     RecordType,
     Some,
@@ -36,6 +38,7 @@ from pydhall.ast.term import (
     TextLit,
     ToMap,
     Type,
+    UnionType,
     Var,
 )
 
@@ -298,13 +301,13 @@ class Dhall(Parser):
 
     PathCharacter <-
          '\x21'
-       / ~"[\x24-\x27]"
-       / ~"[\x2a-\x2b]"
-       / ~"[\x2d-\x2e]"
-       / ~"[\x30-\x3b]"
+       / ~"[\\x24-\\x27]"
+       / ~"[\\x2a-\\x2b]"
+       / ~"[\\x2d-\\x2e]"
+       / ~"[\\x30-\\x3b]"
        / '\x3d'
-       / ~"[\x40-\x5a]"
-       / ~"[\x5e-\x7a]"
+       / ~"[\\x40-\\x5a]"
+       / ~"[\\x5e-\\x7a]"
        / '\x7c'
        / '\x7e'
 
@@ -321,7 +324,7 @@ class Dhall(Parser):
     PathComponent <- '/' c:UnquotedPathComponent
                   / '/' '"' c:QuotedPathComponent '"' { @c }
 
-    Path <- PathComponent+
+    Path <- PathComponent+ { on_Path }
 
     Local ← ParentPath / HerePath / HomePath / AbsolutePath
 
@@ -554,38 +557,11 @@ class Dhall(Parser):
 
     CompletionExpression ← first:SelectorExpression rest:(_ Complete _ SelectorExpression)? { on_CompletionExpression }
 
-    SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)* { @e }
-    # {
-    #     expr := e.(Term)
-    #     labels := ls.([]interface{})
-    #     for _, labelSelector := range labels {
-    #         selectorIface := labelSelector.([]interface{})[3]
-    #         switch selector := selectorIface.(type) {
-    #             case string:
-    #                 expr = Field{expr, selector}
-    #             case []string:
-    #                 expr = Project{expr, selector}
-    #             case Term:
-    #                 expr = ProjectType{expr, selector}
-    #             default:
-    #                 return nil, errors.New("unimplemented")
-    #         }
-    #     }
-    #     return expr, nil
-    # }
+    SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)* { on_SelectorExpression }
 
     Selector ← AnyLabel / Labels / TypeSelector
 
-    Labels ← '{' _ optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* )? '}'
-    # {
-    #     if optclauses == nil { return []string{}, nil }
-    #     clauses := optclauses.([]interface{})
-    #     labels := []string{clauses[0].(string)}
-    #     for _, next := range clauses[2].([]interface{}) {
-    #         labels = append(labels, next.([]interface{})[2].(string))
-    #     }
-    #     return labels, nil
-    # }
+    Labels ← '{' _ optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* )? '}' { on_Labels }
 
     TypeSelector ← '(' _ e:Expression _ ')' { @e }
 
@@ -627,33 +603,9 @@ class Dhall(Parser):
 
     UnionType ← NonEmptyUnionType / EmptyUnionType
 
-    EmptyUnionType ← ""
-    # { return UnionType{}, nil }
+    EmptyUnionType ← "" { on_EmptyUnionType }
 
-    NonEmptyUnionType ← first:UnionTypeEntry rest:(_ '|' _ UnionTypeEntry)*
-    # {
-    #     alternatives := make(UnionType)
-    #     first2 := first.([]interface{})
-    #     if first2[1] == nil {
-    #         alternatives[first2[0].(string)] = nil
-    #     } else {
-    #         alternatives[first2[0].(string)] = first2[1].([]interface{})[3].(Term)
-    #     }
-    #     if rest == nil { return UnionType(alternatives), nil }
-    #     for _, alternativeSyntax := range rest.([]interface{}) {
-    #         alternative := alternativeSyntax.([]interface{})[3].([]interface{})
-    #         name := alternative[0].(string)
-    #         if _, ok := alternatives[name]; ok {
-    #             return nil, fmt.Errorf("Duplicate alternative %s in union", name)
-    #         }
-    #         if alternative[1] == nil {
-    #             alternatives[name] = nil
-    #         } else {
-    #             alternatives[name] = alternative[1].([]interface{})[3].(Term)
-    #         }
-    #     }
-    #     return alternatives, nil
-    # }
+    NonEmptyUnionType ← first:UnionTypeEntry rest:(_ '|' _ UnionTypeEntry)* { on_NonEmptyUnionType }
 
     UnionTypeEntry ← AnyLabelOrSome (_ ':' _1 Expression)?
 
@@ -716,7 +668,7 @@ class Dhall(Parser):
         return self.emit(Builtin, result)
 
     def on_Path(self, result):
-        return str(Path().joinpath(result))
+        return str(Path().joinpath(*result))
 
     def on_HttpRaw(self, result):
         return urlparse(self.p_flatten(result))
@@ -833,7 +785,7 @@ class Dhall(Parser):
         return self.emit(CompleteOp, first, rest[3]) 
 
     def on_MergeExpr(self, _, h, u, a=None):
-        return self.emit(Merge, h, u, a=None)
+        return self.emit(Merge, h, u, a)
 
     def on_SomeExpr(self, _, e):
         return self.emit(Some, e)
@@ -917,7 +869,7 @@ class Dhall(Parser):
         return content
 
     def on_RecordLiteralEntry(self, _, name, val):
-        if val == "":
+        if isinstance(val, str) and val == "":
             return self.emit(RecordLit, {name: Var(name)})
         return self.emit(RecordLit, {name: val})
 
@@ -926,3 +878,61 @@ class Dhall(Parser):
         for c in reversed(children):
             rest = RecordLit({c[3]: rest})
         return rest
+
+    def on_EmptyUnionType(self,_):
+        return self.emit(UnionType)
+
+    def on_NonEmptyUnionType(self, _, first, rest):
+        """NonEmptyUnionType ←
+            first:UnionTypeEntry
+            rest:(_ '|' _ UnionTypeEntry)*"""
+        alternatives = {}
+        def add_entry(e):
+            type = e[1]
+            type = type[3] if type else None
+            name = e[0]
+            if name in alternatives:
+                raise ValueError("Duplicate alternative %s in union" % name)
+            alternatives[name] = type
+        add_entry(first)
+        for r in rest:
+            add_entry(r[3])
+        return self.emit(UnionType, alternatives)
+
+    def on_SelectorExpression(self, _, e, ls):
+        "SelectorExpression ← e:PrimitiveExpression ls:(_ '.' _ Selector)*"
+        for selector in [i[3] for i in ls]:
+            if isinstance(selector, str):
+                e = Field(e, selector)
+                continue
+            if isinstance(selector, list):
+                e = Project(e, selector)
+                continue
+            # TODO!
+            assert False
+        return e
+
+    # {
+    #     expr := e.(Term)
+    #     labels := ls.([]interface{})
+    #     for _, labelSelector := range labels {
+    #         selectorIface := labelSelector.([]interface{})[3]
+    #         switch selector := selectorIface.(type) {
+    #             case string:
+    #                 expr = Field{expr, selector}
+    #             case []string:
+    #                 expr = Project{expr, selector}
+    #             case Term:
+    #                 expr = ProjectType{expr, selector}
+    #             default:
+    #                 return nil, errors.New("unimplemented")
+    #         }
+    #     }
+    #     return expr, nil
+    # }
+
+    def on_Labels(self, _, optclauses):
+        "Labels ← '{' _ optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* )? '}'"
+        if not optclauses:
+            return []
+        return [optclauses[0]] + [i[2] for i in optclauses[2]]
