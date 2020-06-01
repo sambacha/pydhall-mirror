@@ -353,7 +353,15 @@ class Let(Term):
     def cbor_values(self):
         bindings = reduce(
             lambda a, b: a + b,
-            [[b.variable, b.annotation.cbor_values(), b.value.cbor_values()] for b in self.bindings])
+            [
+                [
+                    b.variable,
+                    b.annotation.cbor_values() if b.annotation is not None else None,
+                    b.value.cbor_values()
+                ]
+                for b in self.bindings
+            ]
+        )
         if isinstance(self.body, Let):
             return [25] + bindings + self.body.cbor_values()
         else:

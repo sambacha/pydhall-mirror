@@ -40,29 +40,16 @@ class UnionType(dict, Term):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
-
-        if len(self) == 0:
-            return TypeValue
-
-        first = True
-        c = None
+        universe = TypeValue
         for contructor, typ in self.items():
             if typ is None:
                 continue
             k = typ.type(ctx)
-            if first:
-                if not isinstance(k, UniverseValue):
-                    raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_ALTERNATIVE_TYPE)
-                c = k
-            else:
-                if not c @ k:
-                    raise DhallTypeError(TYPE_ERROR_MESSAGE.ALTERNATIVE_ANNOTATION_MISMATCH)
-            if c == SortValue:
-                if typ.eval() != KindValue:
-                    raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_ALTERNATIVE_TYPE)
-            first = False
-        return c
-
+            if not isinstance(k, UniverseValue):
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_ALTERNATIVE_TYPE)
+            if k > universe:
+                universe = k
+        return universe
 
 # unionConstructor struct {
 #     Type        UnionType

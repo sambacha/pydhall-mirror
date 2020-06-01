@@ -47,7 +47,7 @@ class Dhall(Parser):
     __grammar__ = r"""
     DhallFile ← e:CompleteExpression EOF { @e }
 
-    CompleteExpression <- _ e:Expression _ { @e }
+    EOF ← !.
 
     EOL <- "\n" / "\r\n" {;"\n"}
 
@@ -109,14 +109,14 @@ class Dhall(Parser):
         / !Keyword SimpleLabelFirstChar SimpleLabelNextChar*
         { p_flatten }
 
-    QuotedLabelChar <- ~"[\x20-\x5f\x61-\x7e]"
+    QuotedLabelChar <- ~"[\\x20-\\x5f\\x61-\\x7e]"
     QuotedLabel <- QuotedLabelChar+ { p_flatten }
 
     Label <- "`" label:QuotedLabel "`" / label:SimpleLabel { @label }
 
     NonreservedLabel <-
-          &(Reserved SimpleLabelNextChar) label:Label
-        / !Reserved label:Label
+          &(builtin SimpleLabelNextChar) label:Label
+        / !builtin label:Label
         { @label }
 
     AnyLabel <- Label
@@ -191,68 +191,28 @@ class Dhall(Parser):
     # }
 
 
-    Interpolation <- "${" e:CompleteExpression "}" { @e }
+    Interpolation ← "${" e:CompleteExpression "}" { @e }
 
-    TextLiteral <- DoubleQuoteLiteral / SingleQuoteLiteral
+    TextLiteral ← DoubleQuoteLiteral / SingleQuoteLiteral
 
-    Reserved <-
-        "Natural/build"
-      / "Natural/fold"
-      / "Natural/isZero"
-      / "Natural/even"
-      / "Natural/odd"
-      / "Natural/toInteger"
-      / "Natural/show"
-      / "Natural/subtract"
-      / "Integer/clamp"
-      / "Integer/negate"
-      / "Integer/toDouble"
-      / "Integer/show"
-      / "Double/show"
-      / "List/build"
-      / "List/fold"
-      / "List/length"
-      / "List/head"
-      / "List/last"
-      / "List/indexed"
-      / "List/reverse"
-      / "Optional/build"
-      / "Optional/fold"
-      / "Text/show"
-      / "Bool"
-      / "True"
-      / "False"
-      / "Optional"
-      / "Natural"
-      / "Integer"
-      / "Double"
-      / "Text"
-      / "List"
-      / "None"
-      / "Type"
-      / "Kind"
-      / "Sort"
-
-    If <- "if"
-    Then <- "then"
-    Else <- "else"
-    Let <- "let"
-    In <- "in"
-    As <- "as"
-    Using <- "using"
-    Merge <- "merge"
+    If ← "if"
+    Then ← "then"
+    Else ← "else"
+    Let ← "let"
+    In ← "in"
+    As ← "as"
+    Using ← "using"
+    Merge ← "merge"
     # Missing ← "missing" !SimpleLabelNextChar { return Missing{}, nil }
-    Missing <- "missing" !SimpleLabelNextChar
-    True_ <- "True"
-    False_ <- "False"
-    Infinity <- "Infinity"
-    NaN <- "NaN"
-    Some <- "Some"
-    toMap <- "toMap"
-    assert_ <- "assert"
-    with_ <- "with"
+    Missing ← "missing" !SimpleLabelNextChar
+    Infinity ← "Infinity"
+    NaN ← "NaN"
+    Some ← "Some"
+    toMap ← "toMap"
+    assert_ ← "assert"
+    with_ ← "with"
 
-    Keyword <-
+    Keyword ←
         If / Then / Else
       / Let / In
       / Using / Missing
@@ -261,6 +221,44 @@ class Dhall(Parser):
       / Merge / Some / toMap
       / Forall
       / with_
+
+    builtin ←
+        "Natural/fold"
+      / "Natural/build"
+      / "Natural/isZero"
+      / "Natural/even"
+      / "Natural/odd"
+      / "Natural/toInteger"
+      / "Natural/show"
+      / "Integer/show"
+      / "Integer/negate"
+      / "Integer/clamp"
+      / "Natural/subtract"
+      / "Integer/toDouble"
+      / "Double/show"
+      / "List/build"
+      / "List/fold"
+      / "List/length"
+      / "List/head"
+      / "List/last"
+      / "List/indexed"
+      / "List/reverse"
+      / "Optional/fold"
+      / "Optional/build"
+      / "Text/show"
+      / "Bool"
+      / "True"
+      / "False"
+      / "Optional"
+      / "None"
+      / "Natural"
+      / "Integer"
+      / "Double"
+      / "Text"
+      / "List"
+      / "Type"
+      / "Kind"
+      / "Sort"
 
     Text ← "Text"
     Location ← "Location"
@@ -279,8 +277,8 @@ class Dhall(Parser):
     NumericDoubleLiteral ← [+-]? Digit+ ( "." Digit+ Exponent? / Exponent)
 
     DoubleLiteral ← num:NumericDoubleLiteral
-      / inf:Infinity
       / minf:("-" Infinity)
+      / inf:Infinity
       / nan:NaN { on_DoubleLiteral }
 
     NaturalLiteral ← HexLiteral / DecLiteral / BannedDecLiteral / Zero
@@ -297,7 +295,7 @@ class Dhall(Parser):
 
     Variable ← name:NonreservedLabel index:DeBruijn?
 
-    Identifier ← Variable / Reserved
+    Identifier ← Variable / builtin
 
     PathCharacter <-
          '\x21'
@@ -481,6 +479,7 @@ class Dhall(Parser):
         / Bindings
         / ForallExpression
         / AnonPiExpression
+        / WithExpression
         / MergeExpression
         / EmptyList
         / AnnotatedExpression
@@ -492,8 +491,35 @@ class Dhall(Parser):
 
     EmptyList ← '[' _ (',' _)? ']' _ ':' _1 a:ApplicationExpression
 
-    OperatorExpression ← ImportAltExpression
+    WithExpression         ← first:ApplicationExpression rest:(_1 with_ _1 WithClause)* { @first }
+    #   {
+    #     out := first.(Term)
+    #     if rest == nil { return out, nil }
+    #     for _, b := range rest.([]interface{}) {
+    #         path := b.([]interface{})[3].([]string)
+    #         value := b.([]interface{})[7].(Term)
+    #         out = desugarWith(out, path, value)
+    #     }
+    #     return out, nil
+    #   }
 
+    WithClause ← FieldPath _ '=' _ OperatorExpression
+
+    FieldPath ← first:AnyLabelOrSome rest:(_ '.' _ AnyLabelOrSome)*
+    # {
+    #   out := []string{first.(string)}
+    #   if rest == nil { return out, nil }
+    #   for _, b := range rest.([]interface{}) {
+    #     nextField := b.([]interface{})[3].(string)
+    #     out = append(out, nextField)
+    #   }
+    #   return out, nil
+    # }
+
+    OperatorExpression ← EquivalentExpression
+
+    EquivalentExpression   ← first:ImportAltExpression rest:(_ Equivalent _ ImportAltExpression)*
+        { on_Op }
     ImportAltExpression    ← first:OrExpression           rest:(_ "?" _1 OrExpression)*
         { on_Op }
     OrExpression           ← first:PlusExpression         rest:(_ "||" _ PlusExpression)*
@@ -516,33 +542,8 @@ class Dhall(Parser):
         { on_Op }
     EqualExpression        ← first:NotEqualExpression rest:(_ "==" _ NotEqualExpression)*
         { on_Op }
-    NotEqualExpression     ← first:EquivalentExpression rest:(_ "!=" _ EquivalentExpression)*
+    NotEqualExpression     ← first:ApplicationExpression rest:(_ "!=" _ ApplicationExpression)*
         { on_Op }
-    EquivalentExpression   ← first:WithExpression rest:(_ Equivalent _ WithExpression)*
-        { on_Op }
-    WithExpression         ← first:ApplicationExpression rest:(_1 with_ _1 FieldPath _ '=' _ ApplicationExpression)* { @first }
-    #   {
-    #     out := first.(Term)
-    #     if rest == nil { return out, nil }
-    #     for _, b := range rest.([]interface{}) {
-    #         path := b.([]interface{})[3].([]string)
-    #         value := b.([]interface{})[7].(Term)
-    #         out = desugarWith(out, path, value)
-    #     }
-    #     return out, nil
-    #   }
-
-    FieldPath ← first:AnyLabelOrSome rest:(_ '.' _ AnyLabelOrSome)*
-    # {
-    #   out := []string{first.(string)}
-    #   if rest == nil { return out, nil }
-    #   for _, b := range rest.([]interface{}) {
-    #     nextField := b.([]interface{})[3].(string)
-    #     out = append(out, nextField)
-    #   }
-    #   return out, nil
-    # }
-
     ApplicationExpression ← f:FirstApplicationExpression rest:(_1 ImportExpression)* { on_ApplicationExpression }
 
     MergeExpr <- Merge _1 h:ImportExpression _1 u:ImportExpression { on_MergeExpr }
@@ -622,7 +623,7 @@ class Dhall(Parser):
     #           return content, nil
     #       }
 
-    EOF ← !.
+    CompleteExpression <- _ e:Expression _ { @e }
     """
 
     def __init__(self, *args, name="<string>", **kwargs):
@@ -653,7 +654,7 @@ class Dhall(Parser):
     def on_BlockComment(self, value):
         return self.emit(BlockComment, self.p_flatten(value))
 
-    def on_Reserved(self, result):
+    def on_builtin(self, result):
         result = self.p_flatten(result)
         if result == "True":
             return self.emit(BoolLit, True)
@@ -765,6 +766,7 @@ class Dhall(Parser):
         return self.emit(Binding, label, a, v)
 
     def on_Bindings(self, _, bindings, b):
+        # import ipdb; ipdb.set_trace()
         return self.emit(Let, bindings, b)
 
     op_classes = {}
