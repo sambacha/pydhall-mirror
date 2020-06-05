@@ -207,7 +207,8 @@ class Term(Node):
         return f"sha256:{sha}"
 
     def subst(self, name: str, replacement: "Term", level: int = 0):
-        return self
+        raise NotImplementedError(f"{self.__class__.__name__}.subst")
+        # return self
 
     def rebind(self, local, level=0):
         """
@@ -263,7 +264,61 @@ class Fetchable(Node):
     pass
 
 
-class Builtin(Term):
+class BuiltinMeta(type):
+    @classmethod
+    def _get_arrity(cls, tp):
+        from . import Pi, App
+        if isinstance(tp, Pi):
+            return 1 + cls._get_arrity(tp.body)
+        return 0
+        
+    def __new__(cls, name, bases, attrs):
+        if name == "Builtin":
+            return type.__new__(cls, name, bases, attrs)
+
+        if not isinstance(attrs.get("_type"), str):
+            return type.__new__(cls, name, bases, attrs)
+
+        from pydhall.parser.base import Dhall
+        _type_ast = Dhall.p_parse(attrs.pop("_type"))
+        _type = _type_ast.eval()
+
+        def _new_type_fn(self, ctx=None):
+            return _type
+
+        # TODO: Make this a metaclass rather than passing the state
+        # arround
+        class val(Callable):
+            def __init__(self, arrity, call, fn_class, args=None):
+                self.arrity = arrity
+                self._call = call
+                self.fn_class = fn_class
+                self.args = args if args is not None else []
+
+            def __call__(self, x: Value) -> Value:
+                # import ipdb; ipdb.set_trace()
+                args = list(self.args)
+                args.append(x)
+                if len(args) < self.arrity:
+                    return self.__class__(self.arrity, self._call, self.fn_class, args)
+                return self._call(self, *args)
+
+            def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+                ctx = ctx if ctx is not None else QuoteContext()
+                from . import App
+                return App.build(self.fn_class(), *[a.quote(ctx, normalize) for a in self.args])
+
+        call = attrs.pop("__call__")
+
+        new_cls = type.__new__(cls, name, bases, attrs)
+
+        new_cls.type = _new_type_fn
+        new_cls._eval = val(cls._get_arrity(_type_ast), call, new_cls)
+
+        return new_cls
+
+
+class Builtin(Term, metaclass=BuiltinMeta):
     _cbor_idx = -2
     _by_name = {}
     _literal_name = None
@@ -297,6 +352,9 @@ class Builtin(Term):
         name = self._literal_name if self._literal_name is not None else self.__class__.__name__.strip("_")
         return (name,)
 
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return self
+
 
 class _AtomicLit(Term):
     attrs = ["value"]
@@ -309,6 +367,9 @@ class _AtomicLit(Term):
 
     def format_dhall(self):
         return (str(self.value),)
+
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return self
 
 
 class OpValue(Value):
@@ -416,6 +477,10 @@ class LocalVar(Term):
         if local.name == self.name and local.index == self.index:
             return Var(self.name, level)
         return self
+
+    def subst(self, name: str, replacement: "Term", level: int = 0):
+        return self
+
 
 class LocalVarValue(Value):
     def __init__(self, name, index):

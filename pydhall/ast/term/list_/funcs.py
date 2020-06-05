@@ -2,8 +2,9 @@ from ..base import Builtin, Value, Callable, Term, QuoteContext
 from ..universe import TypeValue
 from .base import ListOf, EmptyListValue, NonEmptyListValue
 from ..optional import OptionalOf
-from ..natural.base import NaturalTypeValue
+from ..natural.base import NaturalTypeValue, NaturalLitValue
 from ..record.base import RecordTypeValue
+from ..optional import NoneOf, SomeValue
 
 
 class _ListBuildValue(Callable):
@@ -78,80 +79,34 @@ class ListFold(Builtin):
 _ListFoldValue._quote = ListFold()
 
 
-class _ListLengthValue(Callable):
-    pass
-
-
-ListLengthValue = _ListLengthValue()
-
-
 class ListLength(Builtin):
     _literal_name = "List/length"
-    _eval = ListLengthValue
+    _type = "∀(a : Type) → List a → Natural"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType("_", ListOf(a), NaturalTypeValue))
-
-
-_ListLengthValue._quote = ListLength()
-
-
-class _ListHeadValue(Callable):
-    pass
-
-
-ListHeadValue = _ListHeadValue()
+    def __call__(self, type, x):
+        if isinstance(x, EmptyListValue):
+            return NaturalLitValue(0)
+        return NaturalLitValue(len(x.content))
 
 
 class ListHead(Builtin):
     _literal_name = "List/head"
-    _eval = ListHeadValue
+    _type = "∀(a : Type) → List a → Optional a"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType(
-                "_",
-                ListOf(a),
-                OptionalOf(a)
-            )
-        )
-
-
-_ListHeadValue._quote = ListHead()
-
-
-class _ListLastValue(Callable):
-    pass
-
-
-ListLastValue = _ListLastValue()
+    def __call__(self, type , x):
+        if isinstance(x, EmptyListValue):
+            return NoneOf(type)
+        return SomeValue(x.content[0])
 
 
 class ListLast(Builtin):
     _literal_name = "List/last"
-    _eval = ListLastValue
+    _type = "∀(a : Type) → List a → Optional a"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType(
-                "_",
-                ListOf(a),
-                OptionalOf(a)
-            )
-        )
-
-
-_ListLastValue._quote = ListLast()
+    def __call__(self, type , x):
+        if isinstance(x, EmptyListValue):
+            return NoneOf(type)
+        return SomeValue(x.content[-1])
 
 
 class _ListIndexedValue(Callable):
@@ -223,65 +178,7 @@ class ListReverse(Builtin):
             lambda a: FnType("_", ListOf(a), ListOf(a)))
 
 
-class BuiltinMeta(type):
-    @classmethod
-    def _get_arrity(cls, tp):
-        from .. import Pi, App
-        if isinstance(tp, Pi):
-            return 1 + cls._get_arrity(tp.body)
-        return 0
-        
-    def __new__(cls, name, bases, attrs):
-        print(cls, name, bases, attrs)
-        if name == "NewBuiltin":
-            return type.__new__(cls, name, bases, attrs)
-        bases = bases + (Builtin,)
-
-        if not ("_type" in attrs and isinstance(attrs["_type"], str)):
-            return type.__new__(cls, name, bases, attrs)
-
-        from pydhall.parser.base import Dhall
-        _type_ast = Dhall.p_parse(attrs.pop("_type"))
-        _type = _type_ast.eval()
-        # import ipdb; ipdb.set_trace()
-
-        def _new_type_fn(self, ctx=None):
-            return _type
-
-        class val(Callable):
-            def __init__(self, arrity, call, fn_class, args=None):
-                self.arrity = arrity
-                self._call = call
-                self.fn_class = fn_class
-                self.args = args if args is not None else []
-
-            def __call__(self, x: Value) -> Value:
-                # import ipdb; ipdb.set_trace()
-                self.args.append(x)
-                if len(self.args) < self.arrity:
-                    return self.__class__(self.arrity, self._call, self.fn_class, self.args)
-                return self._call(self, *self.args)
-
-            def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
-                ctx = ctx if ctx is not None else QuoteContext()
-                from .. import App
-                return App.build(self.fn_class, *[a.quote(ctx, normalize) for a in self.args])
-
-        call = attrs.pop("__call__")
-
-        new_cls = type.__new__(cls, name, bases, attrs)
-
-        new_cls.type = _new_type_fn
-        new_cls._eval = val(cls._get_arrity(_type_ast), call, new_cls)
-
-        return new_cls
-
-
-class NewBuiltin(metaclass=BuiltinMeta):
-    pass
-
-
-class NewReverse(NewBuiltin):
+class NewReverse(Builtin):
     _literal_name = "List/reverse"
     _type = "∀(a : Type) → List a → List a"
 

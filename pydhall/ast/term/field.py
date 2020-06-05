@@ -116,6 +116,9 @@ class Project(Term):
         # }
         return ProjectValue(record, self.fieldNames)
 
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return Project(self.record.subst(name, replacement, level), self.field_names)
+
 
 class FieldValue(Value):
     def __init__(self, record, label):
@@ -203,3 +206,7 @@ class Field(Term):
             return UnionConstructor(record, self.field_name)
 
         return FieldValue(record, self.field_name)
+
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return Project(self.record.subst(name, replacement, level), self.field_name)
+

@@ -1,13 +1,13 @@
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.value import Bool
+from pydhall.ast.term.boolean.base import BoolTypeValue
 from pydhall.ast.term.universe import TypeValue, KindValue, SortValue
 
 
 @pytest.mark.parametrize("input,expected", [
-    ("True", Bool),
-    ("False", Bool),
+    ("True", BoolTypeValue),
+    ("False", BoolTypeValue),
     ("Bool", TypeValue),
 ])
 def test_bool(input, expected):

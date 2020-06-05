@@ -19,6 +19,8 @@ from .universe import UniverseValue, TypeValue, KindValue, SortValue
 from .union import UnionType, Merge
 from .list_.base import List, EmptyList, NonEmptyList, ListOf
 from .list_.ops import ListAppendOp
+from .boolean.base import Bool, BoolLit, True_, False_, BoolTypeValue
+from .boolean.ops import *
 
 
 class If(Term):
@@ -30,13 +32,13 @@ class If(Term):
         env = env if env is not None else EvalEnv()
         cond = self.cond.eval(env)
         # print(repr(cond))
-        if cond == value.True_:
+        if cond == True_:
             return self.true.eval(env)
-        elif cond == value.False_:
+        elif cond == False_:
             return self.false.eval(env)
         t = self.true.eval(env)
         f = self.false.eval(env)
-        if t == value.True_ and f == value.False_:
+        if t == True_ and f == False_:
             return cond
         if t @ f:
             return t
@@ -48,7 +50,7 @@ class If(Term):
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
         cond = self.cond.type(ctx)
-        if cond != value.Bool:
+        if cond != BoolTypeValue:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_PREDICATE)
         t = self.true.type(ctx)
         f = self.false.type(ctx)
@@ -290,17 +292,6 @@ class Annot(Term):
         return self.expr.rebind(local, level)
 
 
-class BoolLit(_AtomicLit):
-    _type = value.Bool
-    _cbor_idx = -1
-
-    def eval(self, env=None):
-        return value.BoolLit(self.value)
-
-    def cbor_values(self):
-        return self.value
-
-
 class Import(Term):
     attrs = ["import_hashed", "import_mode"]
 
@@ -493,98 +484,11 @@ class ImportAltOp(Op):
     _op_idx = 11
 
 
-class OrOp(Op):
-    precedence = 20
-    operators = ("||",)
-    _op_idx = 0
-    _type = value.Bool
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        l = self.l.eval(env)
-        r = self.r.eval(env)
-        if isinstance(l, value.BoolLit):
-            if l:
-                return value.True_
-            return r
-        if isinstance(r, value.BoolLit):
-            if r:
-                return value.True_
-            return l
-        if l @ r:
-            return l
-        return value._OrOp(l, r)
-
-
 class TextAppendOp(Op):
     precedence = 40
     operators = ("++",)
     _op_idx = 6
     _type = value.Text
-
-
-class AndOp(Op):
-    precedence = 60
-    operators = ("&&",)
-    _op_idx = 1
-    _type = value.Bool
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        l = self.l.eval(env)
-        r = self.r.eval(env)
-        if isinstance(l, value.BoolLit):
-            if l:
-                return r
-            return False
-        if isinstance(r, value.BoolLit):
-            if r:
-                return l
-            return False
-        if l @ r:
-            return l
-        return value._AndOp(l,r)
-
-    def format_dhall(self):
-        return (self.l.format_dhall(), "&&", self.r.format_dhall())
-
-
-class EqOp(Op):
-    precedence = 110
-    operators = ("==",)
-    _op_idx = 2
-    _type = value.Bool
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        l = self.l.eval(env)
-        r = self.r.eval(env)
-        if isinstance(l, value.BoolLit) and l:
-            return r
-        if isinstance(r, value.BoolLit) and r:
-            return l
-        if l @ r:
-            return value.True_
-        return value._EqOp(l,r)
-
-
-class NeOp(Op):
-    precedence = 120
-    operators = ("!=",)
-    _op_idx = 3
-    _type = value.Bool
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        l = self.l.eval(env)
-        r = self.r.eval(env)
-        if isinstance(l, value.BoolLit) and not l:
-            return r
-        if isinstance(r, value.BoolLit) and not r:
-            return l
-        if l @ r:
-            return BoolLit(False)
-        return value._NeOp(l,r)
 
 
 class EquivOp(Op):
@@ -645,11 +549,3 @@ class Type(Universe):
 class Text(Builtin):
     _type = TypeValue
     _eval = value.Text
-
-
-class Bool(Builtin):
-    _type = TypeValue
-    _eval = value.Bool
-
-    def __init__(self):
-        Term.__init__(self)

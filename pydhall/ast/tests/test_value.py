@@ -3,7 +3,7 @@ import pytest
 from pydhall.parser import Dhall
 from .. import value as v
 from pydhall.ast.term.double import DoubleLitValue
-from pydhall.ast.term.integer import IntegerLitValue
+from pydhall.ast.term.integer.base import IntegerLitValue
 from pydhall.ast.term.natural.base import NaturalLitValue
 
 

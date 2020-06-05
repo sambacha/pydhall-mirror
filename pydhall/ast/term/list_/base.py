@@ -78,6 +78,9 @@ class EmptyList(Term):
     def format_dhall(self):
         return ("[]", ":", self.type_.format_dhall())
 
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return EmptyList(self.type_.subst(name, replacement, level))
+
 
 class NonEmptyList(Term):
     attrs = ["content"]

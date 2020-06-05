@@ -1,6 +1,7 @@
 from ..base import Builtin, Value, Callable
 from ..universe import TypeValue
-from .base import NaturalTypeValue
+from .base import NaturalTypeValue, NaturalLitValue
+from ..integer.base import IntegerLitValue
 
 
 class _NaturalBuildValue(Callable):
@@ -77,11 +78,12 @@ class NaturalOdd(Builtin):
 
 class NaturalToInteger(Builtin):
     _literal_name = "Natural/toInteger"
+    _type = "Natural → Integer"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType
-        from ..integer import IntegerTypeValue
-        return FnType("_", NaturalTypeValue, IntegerTypeValue)
+    def __call__(self, x):
+        if isinstance(x, NaturalLitValue):
+            return IntegerLitValue(int(x))
+        return None
 
 
 class NaturalShow(Builtin):
@@ -94,7 +96,19 @@ class NaturalShow(Builtin):
 
 class NaturalSubtract(Builtin):
     _literal_name = "Natural/subtract"
+    _type = "Natural → Natural → Natural"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType
-        return FnType("_", NaturalTypeValue, FnType("_", NaturalTypeValue, NaturalTypeValue))
+    def __call__(self, x, y):
+        if isinstance(x, NaturalLitValue):
+            if isinstance(y, NaturalLitValue):
+                if y >= x:
+                    return NaturalLitValue(int(y) - int(x))
+                return NaturalLitValue(0)
+            if x == 0:
+                return y
+        if isinstance(y, NaturalLitValue):
+            if y == 0:
+                return y
+        if x @ y:
+            return NaturalLitValue(0)
+        return None

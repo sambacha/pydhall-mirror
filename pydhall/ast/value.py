@@ -1,69 +1,6 @@
 from .term.base import Value, BuiltinValue, QuoteContext, Callable, OpValue
 
 Text = BuiltinValue("Text")
-Bool = BuiltinValue("Bool")
-
-
-class BoolLit(Value):
-    "Marker class for boolean literal"
-    def __init__(self, val):
-        self.__class__ = val and _True or _False
-
-    def __eq__(self, other):
-        return other.__class__ == self.__class__
-
-
-class _False(BoolLit):
-    type = Bool
-
-    def as_python(self):
-        return False
-
-    def as_dhall(self):
-        return "False"
-
-    def __repr__(self):
-        return "False"
-
-    def __str__(self):
-        return "False"
-
-    def __bool__(self):
-        return False
-
-    def quote(self, ctx=None, normalize=False):
-        from .term import BoolLit
-        return BoolLit(False)
-
-
-False_ = BoolLit(False)
-
-
-class _True(BoolLit):
-    type = Bool
-
-    def as_python(self):
-        return True
-
-    def as_dhall(self):
-        return "True"
-
-    def __repr__(self):
-        return "True"
-
-    def __str__(self):
-        return "True"
-
-    def __bool__(self):
-        return True
-
-    def quote(self, ctx=None, normalize=False):
-        from .term import BoolLit
-        return BoolLit(True)
-
-
-True_ = BoolLit(True)
-
 
 class _IfVal(Value):
     def __init__(self, cond, true, false):
@@ -196,22 +133,3 @@ class _App(Value):
         return App(
             self.fn.quote(ctx, normalize),
             self.arg.quote(ctx, normalize))
-
-
-class _NeOp(OpValue):
-    def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
-        from .term import NeOp
-        return NeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
-
-class _AndOp(OpValue):
-    def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
-        from .term import AndOp
-        return AndOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
-
-class _OrOp(OpValue):
-    def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
-        from .term import OrOp
-        return OrOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
