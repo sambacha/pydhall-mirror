@@ -10,7 +10,7 @@ class UniverseValue(Value):
         return f"UniverseValue({self.name})"
 
     def __str__(self):
-        self.name
+        return self.name
 
     def alpha_equivalent(self, other, level=0):
         return other is self

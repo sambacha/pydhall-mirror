@@ -36,6 +36,8 @@ class EvalEnv(dict):
 
 
 class Value:
+    _quote = None
+
     def __str__(self):
         return str(self.as_python())
 
@@ -49,13 +51,15 @@ class Value:
     def __matmul__(self, other):
         return self.alpha_equivalent(other)
 
-    def quote(self, ctx=None, normalize=False):
-        raise NotImplementedError(f"{self.__class__.__name__}.quote")
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> "Term":
+        if self._quote is None:
+            raise NotImplementedError(f"{self.__class__.__name__}.quote")
+        return self._quote
 
 
 class Callable(Value):
     def __call__(self, arg):
-        raise NotImplementedError()
+        raise NotImplementedError(f"{self.__class__.__name__}.__call__")
 
 
 class DependentValue(Value):
@@ -88,6 +92,7 @@ class Node():
     attrs = []
 
     def __init__(self, *args, parser=None, offset=None, **kwargs):
+        self.offset = offset
         i = 0
         for a in self.attrs:
             if a in kwargs:
@@ -96,7 +101,6 @@ class Node():
                 val = args[i]
                 i += 1
             setattr(self, a, val)
-        self.offset = offset
         if parser is None:
             self.src = "<string>"
         else:
@@ -168,6 +172,8 @@ class Term(Node):
     def cbor_values(self):
         if self._cbor_idx is None:
             raise NotImplementedError(f"{self.__class__.__name__}.cbor_values")
+        if self._cbor_idx < 0:
+            return self.eval().as_python()
         return [self._cbor_idx, self.eval().as_python()]
 
     def cbor(self):

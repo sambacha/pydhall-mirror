@@ -49,7 +49,8 @@ class CompleteOp(Op):
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
-        from . import Annot
+        from .. import Annot
+        from ..field import Field
         annot = Annot(
             RightBiasedRecordMergeOp(
                 Field(self.l, "default"),
@@ -59,7 +60,8 @@ class CompleteOp(Op):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
-        from . import Annot
+        from .. import Annot
+        from ..field import Field
         annot = Annot(
             RightBiasedRecordMergeOp(
                 Field(self.l, "default"),
@@ -83,19 +85,22 @@ class RecordMergeOp(Op):
         record_type = RecordTypeMergeOp(l_type.quote(), r_type.quote())
         record_type.type(ctx)
         return record_type.eval()
-			# lType, err := typeWith(ctx, t.L)
-			# if err != nil {
-			# 	return nil, err
-			# }
-			# rType, err := typeWith(ctx, t.R)
-			# if err != nil {
-			# 	return nil, err
-			# }
-			# recordType := term.Op{L: Quote(lType), R: Quote(rType), OpCode: term.RecordTypeMergeOp}
-			# if _, err = typeWith(ctx, recordType); err != nil {
-			# 	return nil, err
-			# }
-			# return Eval(recordType), nil
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        l = self.l.eval(env)
+        r = self.r.eval(env)
+        # lR, lOk := l.(RecordLit)
+        # rR, rOk := r.(RecordLit)
+        if isinstance(l, RecordLitValue) and len(l) == 0:
+            return r
+        if isinstance(r, RecordLitValue):
+            if len(r) == 0:
+                return l
+            if isinstance(l, RecordLitValue):
+                return l.merge(r)
+        return RecordMergeOpValue(l, r)
+
 
 class RecordTypeMergeOpValue(OpValue):
     pass

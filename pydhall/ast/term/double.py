@@ -1,4 +1,6 @@
 import math
+import struct
+from cbor.cbor import CBOR_FLOAT16, CBOR_FLOAT32, CBOR_FLOAT64
 
 from .base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
 from .text import PlainTextLitValue
@@ -9,6 +11,25 @@ from ..value import Text as TextValue
 
 ## Type
 DoubleTypeValue = BuiltinValue("Double")
+
+
+def _float_to_cbor(f):
+    try:
+        if struct.unpack("e", struct.pack("e", f))[0] == f:
+            return struct.pack("!Be", CBOR_FLOAT16, f)
+    except OverflowError:
+        pass
+    try:
+        if struct.unpack("f", struct.pack("f", f))[0] == f:
+            return struct.pack("!Bf", CBOR_FLOAT32, f)
+    except OverflowError:
+        pass
+    try:
+        if struct.unpack("d", struct.pack("d", f))[0] == f:
+            return struct.pack("!Bd", CBOR_FLOAT64, f)
+    except OverflowError:
+        pass
+    assert False
 
 
 class Double(Builtin):
@@ -59,6 +80,12 @@ class DoubleLit(_AtomicLit):
         if math.isnan(self.value):
             return "NaN"
         return str(self.value)
+
+    def cbor(self):
+        return _float_to_cbor(self.value)
+
+    def cbor_values(self):
+        return _float_to_cbor(self.value)
 
 
 ## Functions

@@ -143,7 +143,7 @@ class Field(Term):
             raise DhallTypeError(MISSING_CONSTRUCTOR)
         if alternative_type is None:
             return union_type
-        from . import Pi
+        from ..value import Pi
         return Pi(
             self.field_name,
             alternative_type,

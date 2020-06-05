@@ -1,4 +1,4 @@
-from .base import Value, Node, Term
+from .base import Value, Node, Term, Builtin
 from ..value import Text as TextTypeValue
 
 class Chunk(Node):
@@ -20,6 +20,7 @@ class TextLit(Term):
         for c in self.chunks:
             out.append(c.prefix, c.expr.cbor_values())
         out.append(self.suffix)
+        print(out)
         return out
 
     def eval(self, env=None):
@@ -29,3 +30,7 @@ class TextLit(Term):
 
 def PlainTextLit(txt):
     return TextLit([], txt)
+
+
+class TextShow(Builtin):
+    _literal_name = "Text/show"

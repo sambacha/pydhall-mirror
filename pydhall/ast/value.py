@@ -136,6 +136,9 @@ class Pi(Value):
         # print(repr(res))
         return res
 
+    def __str__(self):
+        return f"Pi({repr(self.label)}, {str(self.domain)}, {str(self.codomain)})"
+
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         if not isinstance(other, Pi):
             return False
@@ -195,21 +198,6 @@ class _App(Value):
             self.arg.quote(ctx, normalize))
 
 
-class ListOf(Value):
-    def __init__(self, type_):
-        self.type_ = type_
-
-
-class NonEmptyList(Value):
-    def __init__(self, content):
-        self.content = content
-
-    def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
-        from .term import NonEmptyList
-        return NonEmptyList([e.quote(ctx, normalize) for e in self.content])
-
-
 class _NeOp(OpValue):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
@@ -221,3 +209,9 @@ class _AndOp(OpValue):
         ctx = ctx if ctx is not None else QuoteContext()
         from .term import AndOp
         return AndOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
+
+class _OrOp(OpValue):
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        from .term import OrOp
+        return OrOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))

@@ -1,9 +1,15 @@
 from copy import deepcopy
 
+import cbor
+
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.utils import dict_to_cbor
 
 from .base import Term, Value, TypeContext, EvalEnv, QuoteContext, Callable
 from .universe import TypeValue, UniverseValue, SortValue, KindValue
+from .record import RecordTypeValue
+from .optional import OptionalOf
+from .natural.base import NaturalLitValue
 
 
 class UnionTypeValue(dict, Value):
@@ -51,10 +57,10 @@ class UnionType(dict, Term):
                 universe = k
         return universe
 
-# unionConstructor struct {
-#     Type        UnionType
-#     Alternative string
-# }
+    def cbor_values(self):
+        return cbor.dumps([11, dict_to_cbor(self)])
+
+
 class UnionConstructor(Callable):
     def __init__(self, type_, alternative):
         self.type_ = type_
@@ -67,11 +73,6 @@ class UnionConstructor(Callable):
             self.type_.quote(ctx, normalize),
             self.alternative)
 
-
-# unionVal struct {
-#     Type        UnionType
-#     Alternative string
-#     Val         Value // nil for empty alternatives
 
 class Merge(Term):
     attrs = ["handler", "union", "annotation"]
@@ -89,13 +90,14 @@ class Merge(Term):
         # if err != nil {
         #     return nil, err
         # }
-        union_type_val = self.union.type(ctx)
+        union_type = self.union.type(ctx)
 
         # handlerType, ok := handlerTypeVal.(RecordType)
         # if !ok {
         #     return nil, mkTypeError(mustMergeARecord)
         # }
-
+        if not isinstance(handler_type, RecordTypeValue):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.MUST_MERGE_A_RECORD)
 
         # unionType, ok := unionTypeV.(UnionType)
         # if !ok {
@@ -105,9 +107,17 @@ class Merge(Term):
         #     }
         #     unionType = UnionType{"Some": opt.Type, "None": nil}
         # }
+        if not isinstance(union_type, UnionTypeValue):
+            if not isinstance(union_type, OptionalOf):
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MUST_MERGE_UNION)
+            union_type = UnionTypeValue({"Some": union_type.type_, "None": None})
+
+
         # if len(handlerType) > len(unionType) {
         #     return nil, mkTypeError(unusedHandler)
         # }
+        if len(handler_type) > len(union_type):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.UNUSED_HANDLER)
 
         # if len(handlerType) == 0 {
         #     if t.Annotation == nil {
@@ -118,8 +128,14 @@ class Merge(Term):
         #     }
         #     return Eval(t.Annotation), nil
         # }
+        if len(handler_type) == 0:
+            if self.annotation is None:
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_MERGE_TYPE)
+            _ = self.annotation.type(ctx)
+            return self.annotation.eval()
 
         # var result Value
+        result = None
         # for altName, altType := range unionType {
         #     fieldType, ok := handlerType[altName]
         #     if !ok {
@@ -156,6 +172,42 @@ class Merge(Term):
         #         }
         #     }
         # }
+        for alt_name, alt_type in union_type.items():
+            try:
+                field_type = handler_type[alt_name]
+            except KeyError:
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_HANDLER)
+            if alt_type is None:
+                if result is None:
+                    result = field_type
+                else:
+                    if not result @ field_type:
+                        raise DhallTypeError(
+                            TYPE_ERROR_MESSAGE.HANDLER_OUTPUT_TYPE_MISMATCH % (
+                                result.quote(),
+                                field_type.quote()))
+            else:
+                from pydhall.ast.value import Pi
+                if not isinstance(field_type, Pi):
+                    raise DhallTypeError(TYPE_ERROR_MESSAGE.HANDLER_NOT_A_FUNCTION)
+                if not alt_type @ field_type.domain:
+                    raise DhallTypeError(
+                        TYPE_ERROR_MESSAGE.HANDLER_INPUT_TYPE_MISMATCH % (
+                            alt_type.quote(),
+                            field_type.quote()))
+                output_type = field_type.codomain(NaturalLitValue(1))
+                output_type2 = field_type.codomain(NaturalLitValue(2))
+                if not output_type @ output_type2:
+                    raise DhallTypeError(TYPE_ERROR_MESSAGE.DISALLOWED_HANDLER_TYPE)
+                if result is None:
+                    result = output_type
+                else:
+                    if not result @ output_type:
+                        raise DhallTypeError(
+                            TYPE_ERROR_MESSAGE.HANDLER_OUTPUT_TYPE_MISMATCH % (
+                                result.quote(),
+                                outpute_type.quote()))
+
         # if t.Annotation != nil {
         #     if _, err := typeWith(ctx, t.Annotation); err != nil {
         #         return nil, err
@@ -165,4 +217,9 @@ class Merge(Term):
         #     }
         # }
         # return result, nil
+        if self.annotation is not None:
+            _ = self.annotation.type(ctx)
+            if not result @ self.annotation:
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.ANNOT_MISMATCH % ( self.annotation, result.quote()))
+        return result
 

@@ -27,7 +27,7 @@ def make_test_file_pairs(dir):
             path2 = str(path2) + "b"
         if (name1 != name2) and (name2 in files):
             if str(path1).replace("A.dhall", "") in FAILURES:
-                continue
+                # continue
                 pairs.append(
                     pytest.param(
                         path1,
@@ -49,6 +49,15 @@ def test_parse_success(input, expected):
         termA = Dhall.p_parse(f.read())
     with open(expected, "rb") as f:
         assert isinstance(termA, Term)
-        # print(termA.cbor_values())
-        assert termA.cbor() == f.read()
+        bin = termA.cbor()
+        try:
+            assert termA.cbor() == f.read()
+        except AssertionError:
+            print("")
+            print(input)
+            print(repr(termA))
+            print(termA.cbor_values())
+            with open(expected.replace(".dhallb", ".diag")) as f:
+                print(f.read())
+            raise
 

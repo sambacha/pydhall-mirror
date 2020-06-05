@@ -12,6 +12,19 @@ class RecordLitValue(dict, Value):
         ctx = ctx if ctx is not None else QuoteContext()
         return RecordLit({k: v.quote(ctx, normalize) for k, v in self.items()})
 
+    def merge(self, other):
+        assert isinstance(other, RecordLitValue)
+        result = {k: v for k, v in self.items()}
+        for k, v in other.items():
+            if k in result:
+                if isinstance(v, RecordLitValue):
+                    result[k] = self[k].merge(v)
+                # TODO: dhall-golang mustMergeRecordLitVals doesn't do this. Why?
+                # else:
+                #     result[k] = v
+            else:
+                result[k] = v
+        return RecordLitValue(result)
 
 class RecordLit(DictTerm):
     def cbor_values(self):
@@ -63,7 +76,7 @@ class RecordTypeValue(dict, Value):
 
         # for k, v := range r {
         #     if lField, ok := result[k]; ok {
-        #         lSubrecord, Lok := lField.(RecordType)
+       #         lSubrecord, Lok := lField.(RecordType)
         #         rSubrecord, Rok := v.(RecordType)
         #         if !(Lok && Rok) {
         #             return nil, errors.New("Record mismatch")
