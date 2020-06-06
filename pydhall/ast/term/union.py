@@ -10,6 +10,7 @@ from .universe import TypeValue, UniverseValue, SortValue, KindValue
 from .record import RecordTypeValue
 from .optional import OptionalOf
 from .natural.base import NaturalLitValue
+from .function.pi import PiValue
 
 
 class UnionTypeValue(dict, Value):
@@ -187,8 +188,7 @@ class Merge(Term):
                                 result.quote(),
                                 field_type.quote()))
             else:
-                from pydhall.ast.value import Pi
-                if not isinstance(field_type, Pi):
+                if not isinstance(field_type, PiValue):
                     raise DhallTypeError(TYPE_ERROR_MESSAGE.HANDLER_NOT_A_FUNCTION)
                 if not alt_type @ field_type.domain:
                     raise DhallTypeError(

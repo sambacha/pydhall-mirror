@@ -2,11 +2,10 @@ import math
 import struct
 from cbor.cbor import CBOR_FLOAT16, CBOR_FLOAT32, CBOR_FLOAT64
 
-from .base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
-from .text import PlainTextLitValue
+from ..base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
+from ..text.base import PlainTextLitValue, TextTypeValue
 
-from .universe import TypeValue
-from ..value import Text as TextValue
+from ..universe import TypeValue
 
 
 ## Type
@@ -88,26 +87,4 @@ class DoubleLit(_AtomicLit):
         return _float_to_cbor(self.value)
 
 
-## Functions
-class _DoubleShowValue(Callable):
-    def __call__(self, x: Value):
-        # print("call...............")
-        # print(x)
-        if not isinstance(x, DoubleLitValue):
-            return None
-        return PlainTextLitValue(x)
 
-    def quote(self, ctx=None, normalize=None):
-        return DoubleShow()
-
-
-DoubleShowValue = _DoubleShowValue()
-
-
-class DoubleShow(Builtin):
-    _literal_name = "Double/show"
-    _eval = DoubleShowValue
-
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType
-        return FnType("_", DoubleTypeValue, TextValue)

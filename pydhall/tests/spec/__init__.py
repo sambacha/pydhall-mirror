@@ -1,7 +1,7 @@
 FAILURES = [
     # Beta-norm
     "dhall-lang/tests/normalization/success/remoteSystems",
-    "dhall-lang/tests/normalization/success/WithRecordValue",
+    # "dhall-lang/tests/normalization/success/WithRecordValue",
 
     # parser
     # easy
@@ -221,6 +221,6 @@ FAILURES = [
     # "dhall-lang/tests/parser/success/hexadecimal",
 
     ## types
-    "dhall-lang/tests/type-inference/success/unit/RecordLitDuplicateFieldsAbstract",
+    # "dhall-lang/tests/type-inference/success/unit/RecordLitDuplicateFieldsAbstract",
 ]
 

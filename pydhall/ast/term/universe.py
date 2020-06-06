@@ -1,4 +1,8 @@
-from .base import Value
+import cbor
+
+from .base import Value, Builtin, Term
+
+from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 class UniverseValue(Value):
     def __init__(self, name, type, rank):
@@ -38,3 +42,41 @@ class UniverseValue(Value):
 SortValue = UniverseValue("Sort", None, 30)
 KindValue = UniverseValue("Kind", SortValue, 20)
 TypeValue = UniverseValue("Type", KindValue, 10)
+
+class Universe(Builtin):
+
+    def __init__(self, *args, **kwargs):
+        Term.__init__(self, *args, **kwargs)
+
+    def cbor(self):
+        return cbor.dumps(self.__class__.__name__)
+
+    @classmethod
+    def from_name(cls, name):
+        return Builtin(name)
+
+    def cbor_values(self):
+        return self.__class__.__name__
+
+    def rebind(self, local, level=0):
+        return self
+
+
+class Sort(Universe):
+    _eval = SortValue
+    _rank = 30
+
+    def type(self):
+        raise DhallTypeError(TYPE_ERROR_MESSAGE.UNTYPED)
+
+
+class Kind(Universe):
+    _eval = KindValue
+    _type = SortValue
+    _rank = 20
+
+
+class Type(Universe):
+    _type = KindValue
+    _eval = TypeValue
+    _rank = 10

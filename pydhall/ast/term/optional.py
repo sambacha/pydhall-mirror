@@ -1,11 +1,16 @@
 from .base import Term, Builtin, Value, EvalEnv, Callable, QuoteContext, DependentValue, TypeContext
 from .universe import TypeValue
 from ..type_error import TYPE_ERROR_MESSAGE
+from .function.pi import PiValue, FnType
+from .function.lambda_ import LambdaValue
 
 ## Optional
 class _OptionalValue(Callable):
     def __call__(self, x: Value):
         return OptionalOf(x)
+
+    def quote(self, ctx=None, normalize=None):
+        return Optional()
 
 
 OptionalValue = _OptionalValue()
@@ -15,7 +20,6 @@ class Optional(Builtin):
     _eval = OptionalValue
 
     def type(self, ctx=None):
-        from pydhall.ast.value import FnType
         return FnType("_", TypeValue, TypeValue)
 
 
@@ -83,6 +87,9 @@ class _NoneValue(Callable):
     def __call__(self, x: Value):
         return NoneOf(x)
 
+    def quote(self, ctx=None, normalize=None):
+        return None_()
+
 
 NoneValue = _NoneValue()
 
@@ -92,8 +99,7 @@ class None_(Builtin):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
-        from pydhall.ast.value import Pi
-        return Pi("A", TypeValue, lambda A: OptionalOf(A))
+        return PiValue("A", TypeValue, lambda A: OptionalOf(A))
 
 
 ## Funtions
@@ -104,8 +110,8 @@ class _OptionalBuildValue(Callable):
     def __call__(self, x: Value) -> Value:
         if self.type_ == None:
             return _OptionalBuildValue(x)
-        from pydhall.ast.value import _Lambda, _App
-        some = _Lambda("a", self.type_, lambda a: SomeValue(a))
+        from pydhall.ast.value import _App
+        some = LambdaValue("a", self.type_, lambda a: SomeValue(a))
         return _App.build(x, OptionalOf(self.type_), some, NoneOf(self.type_))
 
 
@@ -119,13 +125,12 @@ class OptionalBuild(Builtin):
     def type(self, ctx=None):
         # TODO: understand and document this.
         ctx = ctx if ctx is not None else TypeContext()
-        from pydhall.ast.value import Pi, FnType
-        return Pi(
+        return PiValue(
             "a",
             TypeValue,
             lambda a: FnType(
                 "_",
-                Pi(
+                PiValue(
                     "optional",
                     TypeValue,
                     lambda optional: FnType(
@@ -182,14 +187,13 @@ class OptionalFold(Builtin):
     def type(self, ctx=None):
         # TODO: understand and document this.
         ctx = ctx if ctx is not None else TypeContext()
-        from pydhall.ast.value import Pi, FnType
-        return Pi(
+        return PiValue(
             "a",
             TypeValue,
             lambda a: FnType(
                 "_",
                 OptionalOf(a),
-                Pi(
+                PiValue(
                     "optional",
                     TypeValue,
                     lambda optional: FnType(

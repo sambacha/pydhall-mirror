@@ -31,7 +31,7 @@ class OrOp(Op):
         return OrOpValue(l, r)
 
 
-class _NeOp(OpValue):
+class NeOpValue(OpValue):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
         return NeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
@@ -69,6 +69,11 @@ class AndOp(Op):
         return (self.l.format_dhall(), "&&", self.r.format_dhall())
 
 
+class EqOpValue(OpValue):
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return EqOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
+
 class EqOp(Op):
     precedence = 110
     operators = ("==",)
@@ -103,7 +108,7 @@ class NeOp(Op):
         if isinstance(r, BoolLitValue) and not r:
             return l
         if l @ r:
-            return BoolLit(False)
+            return False_
         return NeOpValue(l,r)
 
 

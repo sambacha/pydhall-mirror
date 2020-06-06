@@ -1,211 +1,29 @@
 from copy import deepcopy
 from functools import reduce
 
-import cbor
 
 from .base import Node, Term, _AtomicLit, Builtin, TypeContext, EvalEnv, Op, Var
 from .. import value
 from ..type_error import DhallTypeError, TYPE_ERROR_MESSAGE
-from .double import DoubleLit
+from .double.base import DoubleLit
 from .integer import IntegerLit
 from .optional import Some
-from .text import Chunk, TextLit, TextTypeValue
+from .text.base import Chunk, TextLit, TextTypeValue
+from .text.ops import *
 from .record.base import RecordLit, RecordType, RecordTypeValue
 from .record.ops import CompleteOp, RecordMergeOp
 from .natural.base import NaturalLit
 from .natural.ops import PlusOp, TimesOp
 from .field import Field, Project
-from .universe import UniverseValue, TypeValue, KindValue, SortValue
+from .universe import UniverseValue, TypeValue, KindValue, SortValue, Universe, Sort, Kind, Type
 from .union import UnionType, Merge
 from .list_.base import List, EmptyList, NonEmptyList, ListOf
 from .list_.ops import ListAppendOp
 from .boolean.base import Bool, BoolLit, True_, False_, BoolTypeValue
 from .boolean.ops import *
-
-
-class If(Term):
-    attrs = ["cond", "true", "false"]
-    _rebindable = ["cond", "true", "false"]
-    _cbor_idx = 14
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        cond = self.cond.eval(env)
-        # print(repr(cond))
-        if cond == True_:
-            return self.true.eval(env)
-        elif cond == False_:
-            return self.false.eval(env)
-        t = self.true.eval(env)
-        f = self.false.eval(env)
-        if t == True_ and f == False_:
-            return cond
-        if t @ f:
-            return t
-        return value._IfVal(cond, t, f)
-
-    def cbor_values(self):
-        return [14, self.cond.cbor_values(), self.true.cbor_values(), self.false.cbor_values()]
-
-    def type(self, ctx=None):
-        ctx = ctx if ctx is not None else TypeContext()
-        cond = self.cond.type(ctx)
-        if cond != BoolTypeValue:
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_PREDICATE)
-        t = self.true.type(ctx)
-        f = self.false.type(ctx)
-        if t.quote().type(ctx) != TypeValue or f.quote().type(ctx) != TypeValue:
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MUST_BE_TERM)
-        if not t @ f:
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.IF_BRANCH_MISMATCH)
-        return t
-
-    def subst(self, name, replacement, level=0):
-        return If(
-            self.cond.subst(name, replacement, level),
-            self.true.subst(name, replacement, level),
-            self.false.subst(name, replacement, level),
-        )
-
-    def format_dhall(self):
-        return (("if", self.cond.format_dhall()), ("then", self.true.format_dhall()), ("else", self.false.format_dhall()))
-
-
-class Lambda(Term):
-    attrs = ["label", "type_", "body"]
-
-    def type(self, ctx=None):
-        ctx = ctx if ctx is not None else TypeContext()
-        # print(repr(self))
-        # print(ctx)
-        # print("--------------------------------------")
-        # typecheck the type
-        self.type_.type(ctx)
-
-        argtype = self.type_.eval()
-        pi = value.Pi(self.label, argtype)
-        fresh = ctx.freshLocal(self.label)
-        body = self.body.subst(self.label, fresh)
-        # print(ctx.extend(self.label, argtype))
-        bt = body.type(ctx.extend(self.label, argtype))
-
-        def codomain(val):
-            rebound = bt.quote().rebind(fresh)
-            return rebound.eval(EvalEnv({self.label: [val]}))
-
-        pi.codomain = codomain
-
-        # typecheck the result
-        pi.quote().type(ctx)
-
-        return pi
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        domain = self.type_.eval(env)
-
-        def fn(x: value.Value) -> value.Value:
-            newenv = env.copy()
-            newenv.insert(self.label, x)
-            result = self.body.eval(newenv)
-            # print(repr(result))
-            return result
-
-        return value._Lambda(self.label, domain, fn)
-
-    def cbor_values(self):
-        if self.label == "_":
-            return [1, self.type_.cbor_values(), self.body.cbor_values()]
-        return [1, self.label, self.type_.cbor_values(), self.body.cbor_values()]
-
-    def subst(self, name, replacement, level=0):
-        body_level = level + 1 if self.label == name else level
-        return Lambda(
-            self.label,
-            self.type_.subst(name, replacement, level),
-            self.body.subst(name, replacement, body_level))
-
-    def rebind(self, local, level=0):
-        body_level = level + 1 if self.label == local.name else level
-        return Lambda(
-            self.label,
-            self.type_.rebind(local, level),
-            self.body.rebind(local, body_level))
-
-    def format_dhall(self):
-        return (f"λ({self.label} : {self.type_.dhall()} ) →", self.body.format_dhall())
-
-
-class Pi(Term):
-    attrs = ["label", "type_", "body"]
-
-    def cbor_values(self):
-        if self.label == "_":
-            return [2, self.type_.cbor_values(), self.body.cbor_values()]
-        return [2, self.label, self.type_.cbor_values(), self.body.cbor_values()]
-
-    def type(self, ctx=None):
-        ctx = ctx if ctx is not None else TypeContext()
-
-        # inUniv, err := typeWith(ctx, t.Type)
-        # if err != nil {
-        #     return nil, err
-        # }
-        type_type = self.type_.type(ctx)
-
-        # i, ok := inUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidInputType)
-        # }
-        if not isinstance(type_type, UniverseValue):
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_INPUT_TYPE)
-
-        # freshLocal := ctx.freshLocal(t.Label)
-        fresh = ctx.freshLocal(self.label)
-        outUniv = self.body.subst(self.label, fresh).type(ctx.extend(self.label, self.type_.eval()))
-        if not isinstance(outUniv, UniverseValue):
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_OUTPUT_TYPE)
-        if outUniv is TypeValue:
-            return TypeValue
-        if type_type < outUniv:
-            return outUniv
-        return type_type
-        # outUniv, err := typeWith(
-        #     ctx.extend(t.Label, Eval(t.Type)),
-        #     term.Subst(t.Label, freshLocal, t.Body))
-        # if err != nil {
-        #     return nil, err
-        # }
-        # o, ok := outUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidOutputType)
-        # }
-        # return functionCheck(i, o), nil
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        def codomain(x: value.Value) -> value.Value:
-            newenv = env.copy()
-            newenv.insert(self.label, x)
-            return self.body.eval(newenv)
-        return value.Pi(
-            self.label,
-            self.type_.eval(env),
-            codomain)
-
-    def subst(self, name, replacement, level=0):
-        body_level = level + 1 if self.label == name else level
-        return Pi(
-            self.label,
-            self.type_.subst(name, replacement, level),
-            self.body.subst(name, replacement, body_level))
-
-    def rebind(self, local, level=0):
-        body_level = level + 1 if self.label == local.name else level
-        return Pi(
-            self.label,
-            self.type_.rebind(local, level),
-            self.body.rebind(local, body_level))
+from .if_ import If
+from .function import Lambda, Pi
+from .function.pi import PiValue
 
 
 class App(Term):
@@ -223,7 +41,7 @@ class App(Term):
 
         fn_type = self.fn.type(ctx)
         arg_type = self.arg.type(ctx)
-        if not isinstance(fn_type, value.Pi):
+        if not isinstance(fn_type, PiValue):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.NOT_A_FUNCTION)
         expected_type = fn_type.domain
         if not expected_type @ arg_type:
@@ -484,11 +302,8 @@ class ImportAltOp(Op):
     _op_idx = 11
 
 
-class TextAppendOp(Op):
-    precedence = 40
-    operators = ("++",)
-    _op_idx = 6
-    _type = value.Text
+class EquivOpVal(OpValue):
+    pass
 
 
 class EquivOp(Op):
@@ -506,46 +321,6 @@ class EquivOp(Op):
             raise DhallTypeError(TYPE_ERROR_MESSAGE, EQUIVALENCE_TYPE_MISMATCH)
         return TypeValue
 
-
-class Universe(Builtin):
-
-    def __init__(self, *args, **kwargs):
-        Term.__init__(self, *args, **kwargs)
-
-    def cbor(self):
-        return cbor.dumps(self.__class__.__name__)
-
-    @classmethod
-    def from_name(cls, name):
-        return Builtin(name)
-
-    def cbor_values(self):
-        return self.__class__.__name__
-
-    def rebind(self, local, level=0):
-        return self
-
-
-class Sort(Universe):
-    _eval = SortValue
-    _rank = 30
-
-    def type(self):
-        raise DhallTypeError(TYPE_ERROR_MESSAGE.UNTYPED)
-
-
-class Kind(Universe):
-    _eval = KindValue
-    _type = SortValue
-    _rank = 20
-
-
-class Type(Universe):
-    _type = KindValue
-    _eval = TypeValue
-    _rank = 10
-
-
-class Text(Builtin):
-    _type = TypeValue
-    _eval = value.Text
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        return EquivOpVal(self.l.eval(env), self.r.eval(env)) 

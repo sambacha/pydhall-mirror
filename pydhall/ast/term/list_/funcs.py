@@ -1,82 +1,49 @@
 from ..base import Builtin, Value, Callable, Term, QuoteContext
 from ..universe import TypeValue
 from .base import ListOf, EmptyListValue, NonEmptyListValue
+from .ops import _ListAppendOpValue
 from ..optional import OptionalOf
 from ..natural.base import NaturalTypeValue, NaturalLitValue
-from ..record.base import RecordTypeValue
+from ..record.base import RecordTypeValue, RecordLitValue
 from ..optional import NoneOf, SomeValue
-
-
-class _ListBuildValue(Callable):
-    def __call__(self, x: Value):
-        raise Exception("*******************************************")
-
-
-ListBuildValue = _ListBuildValue()
+from ..function.lambda_ import LambdaValue
+from ..function.pi import PiValue, FnType
+from ...value import _App as AppValue
 
 
 class ListBuild(Builtin):
     _literal_name = "List/build"
-    _eval = ListBuildValue
-    tp = "∀(a : Type) → (∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list) → List a"
+    _type = "∀(a : Type) → (∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list) → List a"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
+    def __call__(self, typ, x):
+        def fn(a):
+            def inner(as_):
+                if isinstance(a, EmptyListValue):
+                    return NonEmptyListValue([a])
+                if isinstance(as_, NonEmptyListValue):
+                    return NonEmptyListValue([a] + list(as_.content))
+                return _ListAppendOpValue(NonEmptyListValue([a]), as_)
+            return LambdaValue("as", ListOf(typ), inner)
+        cons = LambdaValue(
             "a",
-            TypeValue,
-            lambda a : FnType(
-                "_",
-                Pi(
-                    "list",
-                    TypeValue,
-                    lambda lst: FnType(
-                        "cons",
-                        FnType("_", a, FnType("_", lst, lst)),
-                        FnType("nil", lst, lst)
-                    )),
-                ListOf(a)
-            )
-        )
-
-
-_ListBuildValue._quote = ListBuild()
-
-
-class _ListFoldValue(Callable):
-    pass
-
-
-ListFoldValue = _ListFoldValue()
+            typ,
+            fn)
+        return AppValue.build(x, ListOf(typ), cons, EmptyListValue(ListOf(typ)))
 
 
 class ListFold(Builtin):
     _literal_name = "List/fold"
-    _eval = ListFoldValue
-    tp = "∀(a : Type) → List a → ∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list"
-
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType(
-                "_",
-                ListOf(a),
-                Pi(
-                    "list",
-                    TypeValue,
-                    lambda lst: FnType(
-                        "cons",
-                        FnType("_", a, FnType("_", lst, lst)),
-                        FnType("nil", lst, lst)
-                    )
-                )
-            )
-        )
+    _type = "∀(a : Type) → List a → ∀(list : Type) → ∀(cons : a → list → list) → ∀(nil : list) → list"
 
 
-_ListFoldValue._quote = ListFold()
+    def __call__(self, typ1, list_, typ2, cons, empty):
+        if isinstance(list_, EmptyListValue):
+            return empty
+        if isinstance(list_, NonEmptyListValue):
+            result = empty
+            for i in reverse(list_.content):
+                result = AppValue.build(cons, i, result)
+            return result
 
 
 class ListLength(Builtin):
@@ -109,76 +76,29 @@ class ListLast(Builtin):
         return SomeValue(x.content[-1])
 
 
-class _ListIndexedValue(Callable):
-    pass
-
-
-ListIndexedValue = _ListIndexedValue()
-
-
 class ListIndexed(Builtin):
     _literal_name = "List/indexed"
-    _eval = ListIndexedValue
+    _type = "∀(a : Type) → List a → List { index : Natural, value : a }"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType(
-                "_",
-                ListOf(a),
-                ListOf(
-                    RecordTypeValue({
-                        "index": NaturalTypeValue,
-                        "value": a})
-                )
-            )
-        )
-
-
-_ListIndexedValue._quote = ListIndexed()
-
-
-class _ListReverseValue(Callable):
-    def __init__(self, a: Value = None):
-        self.a = a
-
-    def __call__(self, x: Value) -> Value:
-        # import ipdb; ipdb.set_trace()
-        if self.a is None:
-            return _ListReverseValue(a=x)
+    def __call__(self, typ, x):
         if isinstance(x, EmptyListValue):
-            return x
+            return EmptyListValue(
+                ListOf(
+                    RecordTypeValue(
+                        {"index": NaturalTypeValue,
+                         "value": typ}
+                     )
+                 )
+             )
         if isinstance(x, NonEmptyListValue):
-            return NonEmptyListValue(reversed(x.content))
+            result = [RecordLitValue({"index": NaturalLitValue(i), "value": val})
+                      for i, val in enumerate(x.content)]
+            return NonEmptyListValue(result)
         return None
-
-    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
-        ctx = ctx if ctx is not None else QuoteContext()
-        if self.a is not None:
-            from .. import App
-            return App(ListReverse(), self.a.quote(ctx, normalize))
-        return ListReverse()
-
-
-
-ListReverseValue = _ListReverseValue()
+        
 
 
 class ListReverse(Builtin):
-    _literal_name = "List/reverse2"
-    _eval = ListReverseValue
-
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return Pi(
-            "a",
-            TypeValue,
-            lambda a: FnType("_", ListOf(a), ListOf(a)))
-
-
-class NewReverse(Builtin):
     _literal_name = "List/reverse"
     _type = "∀(a : Type) → List a → List a"
 
@@ -188,9 +108,3 @@ class NewReverse(Builtin):
         if isinstance(x, NonEmptyListValue):
             return NonEmptyListValue(reversed(x.content))
         return None
-
-
-
-assert issubclass(NewReverse, Builtin)
-# print(Builtin._by_name)
-# print(repr(NewReverse().type()))

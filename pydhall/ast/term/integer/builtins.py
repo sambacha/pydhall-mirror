@@ -1,65 +1,44 @@
 from .base import IntegerLitValue, IntegerTypeValue
 from ..base import Callable, Builtin, Value
 from ..natural.base import NaturalTypeValue, NaturalLitValue
-from ...value import Text as TextValue
-from ..text import TextTypeValue
-
-class _IntegerClampValue(Callable):
-    def __call__(self, i: Value) -> Value:
-        if i < 0:
-            return NaturalLitValue(-i)
-        return NaturalLitValue(i)
-
-
-IntegerClampValue = _IntegerClampValue()
+from ..double.base import DoubleLitValue
+from ..text.base import PlainTextLit
 
 
 class IntegerClamp(Builtin):
     _literal_name = "Integer/clamp"
-    _eval = IntegerClampValue
+    _type = "Integer -> Natural"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType
-        return FnType("_", IntegerTypeValue, NaturalTypeValue)
-
-
-class _IntegerNegateValue(Callable):
-    def __call__(self, x: IntegerLitValue) -> IntegerLitValue:
-        return IntegerLitValue(-x)
-
-
-IntegerNegateValue = _IntegerNegateValue()
+    def __call__(self, i: Value) -> Value:
+        if isinstance(i, IntegerLitValue):
+            if i < 0:
+                return NaturalLitValue(0)
+            return NaturalLitValue(i)
 
 
 class IntegerNegate(Builtin):
     _literal_name = "Integer/negate"
-    _eval = IntegerNegateValue
+    _type = "Integer -> Integer"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType 
-        return FnType("_", IntegerTypeValue, IntegerTypeValue)
-
-
-class _IntegerToDoubleValue(Callable):
     def __call__(self, x: Value) -> Value:
-        return DoubleLitValue(float(x))
-
-
-IntegerToDoubleValue = _IntegerToDoubleValue()
+        if isinstance(x, IntegerLitValue):
+            return IntegerLitValue(-x)
 
 
 class IntegerToDouble(Builtin):
     _literal_name = "Integer/toDouble"
-    _eval = IntegerToDoubleValue
+    _type = "Integer -> Double"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType 
-        return FnType("_", IntegerTypeValue, DoubleTypeValue)
+    def __call__(self, x: Value) -> Value:
+        if isinstance(x, IntegerLitValue):
+            return DoubleLitValue(float(x))
 
 
 class IntegerShow(Builtin):
     _literal_name = "Integer/show"
-    
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType 
-        return FnType("_", IntegerTypeValue, TextTypeValue)
+    _type = "Integer -> Text"
+
+    def __call__(self, x):
+        if isinstance(x, IntegerLitValue):
+            return PlainTextLit(str(x))
+        return None

@@ -1,8 +1,8 @@
 import pytest
 
 from pydhall.parser import Dhall
-from .. import value as v
-from pydhall.ast.term.double import DoubleLitValue
+from pydhall.ast.term.base import Value
+from pydhall.ast.term.double.base import DoubleLitValue
 from pydhall.ast.term.integer.base import IntegerLitValue
 from pydhall.ast.term.natural.base import NaturalLitValue
 
@@ -11,7 +11,7 @@ from pydhall.ast.term.natural.base import NaturalLitValue
 
 def test_natural_lit():
     n = NaturalLitValue(1)
-    assert isinstance(n, v.Value)
+    assert isinstance(n, Value)
     assert isinstance(n, NaturalLitValue)
     assert isinstance(n, int)
     assert repr(n) == "NaturalLitValue(1)"
@@ -23,7 +23,7 @@ def test_natural_lit():
 
 def test_integer_lit():
     i = IntegerLitValue(1)
-    assert isinstance(i, v.Value)
+    assert isinstance(i, Value)
     assert isinstance(i, IntegerLitValue)
     assert isinstance(i, int)
     assert repr(i) == "IntegerLitValue(1)"
@@ -35,7 +35,7 @@ def test_integer_lit():
 
 def test_double_lit():
     d = DoubleLitValue(0.1)
-    assert isinstance(d, v.Value)
+    assert isinstance(d, Value)
     assert isinstance(d, DoubleLitValue)
     assert isinstance(d, float)
     assert str(d) == "0.1"

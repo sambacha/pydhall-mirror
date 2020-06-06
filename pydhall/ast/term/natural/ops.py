@@ -1,8 +1,12 @@
-from ..base import Op, OpValue, TypeContext, EvalEnv
+from ..base import Op, OpValue, TypeContext, EvalEnv, QuoteContext
 from .base import NaturalTypeValue, NaturalLitValue
 
 class _PlusOp(OpValue):
-    pass
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return PlusOp(
+            self.l.quote(ctx, normalize),
+            self.r.quote(ctx, normalize))
 
 
 class PlusOp(Op):
@@ -17,7 +21,7 @@ class PlusOp(Op):
         r = self.r.eval(env)
         if isinstance(l, NaturalLitValue):
             if isinstance(r, NaturalLitValue):
-                return NaturalLitValue(l + r)
+                return NaturalLitValue(int(l) + int(r))
             if l == 0:
                 return r
         if isinstance(r, NaturalLitValue):
@@ -27,7 +31,11 @@ class PlusOp(Op):
 
 
 class _TimesOp(OpValue):
-    pass
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return TimesOp(
+            self.l.quote(ctx, normalize),
+            self.r.quote(ctx, normalize))
 
 
 class TimesOp(Op):
@@ -41,7 +49,7 @@ class TimesOp(Op):
         l = self.l.eval(env)
         r = self.r.eval(env)
         if isinstance(l, NaturalLitValue) and isinstance(r, NaturalLitValue):
-            return NaturalLitValue(l * r)
+            return NaturalLitValue(int(l) * int(r))
         if l == 0 or r == 0:
             return NaturalLitValue(0)
         if l == 1:

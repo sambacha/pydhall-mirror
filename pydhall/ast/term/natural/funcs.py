@@ -1,79 +1,67 @@
 from ..base import Builtin, Value, Callable
 from ..universe import TypeValue
 from .base import NaturalTypeValue, NaturalLitValue
+from .ops import _PlusOp
 from ..integer.base import IntegerLitValue
-
-
-class _NaturalBuildValue(Callable):
-    def quote(self, ctx=None, normalize=None):
-        return NaturalBuild()
-
-    # def __call__(self, x: Value) -> Value:
-    #     pass
-
-
-NaturalBuildValue = _NaturalBuildValue()
+from ..boolean.base import True_, False_
+from ..text.base import PlainTextLitValue
+from ...value import _App as AppValue
+from ..function.lambda_ import LambdaValue
 
 
 class NaturalBuild(Builtin):
     _literal_name = "Natural/build"
-    _eval = NaturalBuildValue
+    _type = "(∀(natural : Type) → ∀(succ : natural → natural) → ∀(zero : natural) → natural) → Natural"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return FnType("_",
-            Pi("natural", TypeValue, lambda natural:
-                FnType("succ",
-                    FnType("_", natural, natural),
-                    FnType("zero", natural, natural))),
-            NaturalTypeValue)
-
-
-class _NaturalFoldValue(Callable):
-    pass
-
-
-NaturalFoldValue = _NaturalFoldValue()
+    def __call__(self, x):
+        def fn(n):
+            if isinstance(n, NaturalLitValue):
+                return NaturalLitValue(int(n)+1)
+            return _PlusOp(n, NaturalLitValue(1))
+        succ = LambdaValue(
+            "x",
+            NaturalTypeValue,
+            fn)
+        return AppValue.build(x, NaturalTypeValue, succ, NaturalLitValue(0))
 
 
 class NaturalFold(Builtin):
     _literal_name = "Natural/fold"
-    _eval = NaturalFoldValue
+    _type = "Natural → ∀(natural : Type) → ∀(succ : natural → natural) → ∀(zero : natural) → natural"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Pi
-        return FnType("_",
-            NaturalTypeValue,
-            Pi("natural", TypeValue, lambda natural:
-                FnType("succ",
-                    FnType("_", natural, natural),
-                    FnType("zero", natural, natural))
-            )
-        )
+    def __call__(self, n, typ, succ, zero):
+        if isinstance(n, NaturalLitValue):
+            result = zero
+            for i in range(n):
+                result = apply(succ, result)
+            return result
 
 
 class NaturalIsZero(Builtin):
     _literal_name = "Natural/isZero"
+    _type = "Natural -> Bool"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Bool
-        return FnType("_", NaturalTypeValue, Bool)
+    def __call__(self, x):
+        if isinstance(x, NaturalLitValue):
+            return True_ if x == 0 else False_
 
 
 class NaturalEven(Builtin):
     _literal_name = "Natural/even"
+    _type = "Natural -> Bool"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Bool
-        return FnType("_", NaturalTypeValue, Bool)
+    def __call__(self, x):
+        if isinstance(x, NaturalLitValue):
+            return True_ if x % 2 == 0 else False_
 
 
 class NaturalOdd(Builtin):
     _literal_name = "Natural/odd"
+    _type = "Natural -> Bool"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType, Bool
-        return FnType("_", NaturalTypeValue, Bool)
+    def __call__(self, x):
+        if isinstance(x, NaturalLitValue):
+            return True_ if x % 2 == 1 else False_
 
 
 class NaturalToInteger(Builtin):
@@ -83,15 +71,15 @@ class NaturalToInteger(Builtin):
     def __call__(self, x):
         if isinstance(x, NaturalLitValue):
             return IntegerLitValue(int(x))
-        return None
 
 
 class NaturalShow(Builtin):
     _literal_name = "Natural/show"
+    _type = "Natural → Text"
 
-    def type(self, ctx=None):
-        from pydhall.ast.value import FnType
-        return FnType("_", NaturalTypeValue, TextTypeValue)
+    def __call__(self, x):
+        if isinstance(x, NaturalLitValue):
+            return PlainTextLitValue(int(x))
 
 
 class NaturalSubtract(Builtin):

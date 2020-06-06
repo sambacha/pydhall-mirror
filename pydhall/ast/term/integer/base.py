@@ -1,8 +1,6 @@
 from ..base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
-from ..text import PlainTextLitValue
 
 from ..universe import TypeValue
-from ..double import DoubleTypeValue, DoubleLitValue
 
 
 ## Type

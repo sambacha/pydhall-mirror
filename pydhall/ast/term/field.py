@@ -5,6 +5,7 @@ from .base import Term, Value, TypeContext, EvalEnv
 from .record.base import RecordTypeValue, RecordLitValue
 from .record.ops import RecordMergeOpValue, RightBiasedRecordMergeOpValue
 from .union import UnionTypeValue, UnionType, UnionConstructor
+from .function.pi import PiValue
 
 class ProjectValue(Value):
     pass
@@ -146,8 +147,7 @@ class Field(Term):
             raise DhallTypeError(MISSING_CONSTRUCTOR)
         if alternative_type is None:
             return union_type
-        from ..value import Pi
-        return Pi(
+        return PiValue(
             self.field_name,
             alternative_type,
             lambda _: union_type)

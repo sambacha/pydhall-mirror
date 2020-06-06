@@ -1,5 +1,6 @@
 from ..base import Term, Builtin, Value, EvalEnv, Callable, QuoteContext, DependentValue, TypeContext
 from ..universe import TypeValue
+from ..function.pi import FnType
 
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
@@ -7,6 +8,9 @@ from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 class _ListValue(Callable):
     def __call__(self, x: Value):
         return ListOf(x)
+
+    def quote(self, ctx=None, normalize=False):
+        return List()
 
 
 ListValue = _ListValue()
@@ -50,7 +54,6 @@ class List(Builtin):
     _eval = ListValue
 
     def type(self, ctx=None):
-        from pydhall.ast.value import FnType
         return FnType("_", TypeValue, TypeValue)
 
 
