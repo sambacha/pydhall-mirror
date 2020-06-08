@@ -31,18 +31,8 @@ class PiValue(Value):
         if not isinstance(other, PiValue):
             return False
         my_codomain = self.codomain(_QuoteVar("_", level))
-        other_codomain = self.codomain(_QuoteVar("_", level))
+        other_codomain = other.codomain(_QuoteVar("_", level))
         return my_codomain.alpha_equivalent(other_codomain, level + 1)
-        # v2, ok := v2.(Pi)
-        # if !ok {
-        #     return false
-        # }
-        # return alphaEquivalentWith(level, v1.Domain, v2.Domain) &&
-        #     alphaEquivalentWith(
-        #         level+1,
-        #         v1.Codomain(quoteVar{Name: "_", Index: level}),
-        #         v2.Codomain(quoteVar{Name: "_", Index: level}),
-        #     )
 
 
 def FnType(label: str, domain: Value, codomain: Value) -> PiValue:

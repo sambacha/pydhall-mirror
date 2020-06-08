@@ -32,5 +32,6 @@ class TextShow(Builtin):
                         ch = r'\u{:04x}'.format(ord(ch))
                 # print(ch)
                 out.write(ch)
+            out.write('"')
             return PlainTextLitValue(out.getvalue())
 

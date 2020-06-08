@@ -24,6 +24,12 @@ class LambdaValue(Callable):
             body_val.quote(ctx.extend(label), normalize)
         )
 
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, LambdaValue):
+            return False
+        my_val = self(_QuoteVar("_", level))
+        other_val = other(_QuoteVar("_", level))
+        return my_val.alpha_equivalent(other_val, level + 1)
 
 
 class Lambda(Term):

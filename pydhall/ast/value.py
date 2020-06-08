@@ -35,3 +35,9 @@ class _App(Value):
         return App(
             self.fn.quote(ctx, normalize),
             self.arg.quote(ctx, normalize))
+
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, _App):
+            return False
+        return self.fn.alpha_equivalent(other.fn, level) and self.arg.alpha_equivalent(other.arg, level)
+

@@ -141,7 +141,7 @@ class Node():
 
     def copy(self, **kwargs):
         new = deepcopy(self)
-        for k, v in kwargs:
+        for k, v in kwargs.items():
             object.__setattr__(new, k, v)
         return new
 
@@ -296,7 +296,6 @@ class BuiltinMeta(type):
                 self.args = args if args is not None else []
 
             def __call__(self, x: Value) -> Value:
-                # import ipdb; ipdb.set_trace()
                 args = list(self.args)
                 args.append(x)
                 if len(args) < self.arrity:
@@ -371,6 +370,9 @@ class _AtomicLit(Term):
     def subst(self, name: str, replacement: Term, level: int = 0):
         return self
 
+    def rebind(self, *args, **kwargs):
+        return self
+
 
 class OpValue(Value):
     def __init__(self, l, r):
@@ -411,6 +413,12 @@ class Op(Term):
         return self.__class__(
             self.l.subst(name, replacement, level),
             self.r.subst(name, replacement, level),
+        )
+
+    def rebind(self, local, level=0):
+        return self.__class__(
+            self.l.rebind(local, level),
+            self.r.rebind(local, level),
         )
 
 

@@ -4,7 +4,7 @@ from .base import Term, Value, TypeContext, EvalEnv
 
 from .record.base import RecordTypeValue, RecordLitValue
 from .record.ops import RecordMergeOpValue, RightBiasedRecordMergeOpValue
-from .union import UnionTypeValue, UnionType, UnionConstructor
+from .union import UnionTypeValue, UnionType, UnionConstructor, UnionVal
 from .function.pi import PiValue
 
 class ProjectValue(Value):
@@ -151,6 +151,9 @@ class Field(Term):
             self.field_name,
             alternative_type,
             lambda _: union_type)
+
+    def cbor_values(self):
+        return [9, self.record.cbor_values(), self.field_name]
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()

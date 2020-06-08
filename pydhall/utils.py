@@ -25,5 +25,8 @@ def dict_to_cbor(d):
     out.write(bytearray(length))
     for k in sorted(d):
         out.write(cbor.dumps(k))
-        out.write(cbor.dumps(d[k].cbor()))
+        try:
+            out.write(cbor.dumps(d[k].cbor()))
+        except AttributeError:
+            out.write(cbor.dumps(d[k]))
     return out.getvalue()

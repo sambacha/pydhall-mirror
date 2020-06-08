@@ -110,6 +110,41 @@ class Annot(Term):
         return self.expr.rebind(local, level)
 
 
+class AssertValue(Value):
+    def __init__(self, annotation):
+        self.annotation = annotation
+
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+        ctx = ctx if ctx is not None else QuoteContext()
+        return Assert(self.annotation.quote(ctx, normalize))
+
+
+class Assert(Term):
+    attrs = ["annotation"]
+    
+    def cbor_values(self):
+        return [19, self.annotation.cbor_values()]
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+        self.annotation.assertType(TypeValue, ctx, TYPE_ERROR_MESSAGE.NOT_AN_EQUIVALENCE)
+        oper = self.annotation.eval()
+        if not isinstance(oper, EquivOpVal):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.NOT_AN_EQUIVALENCE)
+        if not oper.l @ oper.r:
+            raise DhallTypeError(
+                TYPE_ERROR_MESSAGE.ASSERTION_FAILED % (
+                    oper.l.quote(), oper.r.quote()))
+        return oper
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+        return AssertValue(self.annotation.eval(env))
+
+    def subst(self, name: str, replacement: Term, level: int =0):
+        return Assert(self.annotation.subst(name, replacement, level))
+
+
 class Import(Term):
     attrs = ["import_hashed", "import_mode"]
 
@@ -303,7 +338,11 @@ class ImportAltOp(Op):
 
 
 class EquivOpVal(OpValue):
-    pass
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+        ctx = ctx if ctx is not None else QuoteContext()
+        return EquivOp(
+            self.l.quote(ctx, normalize),
+            self.r.quote(ctx, normalize))
 
 
 class EquivOp(Op):
@@ -323,4 +362,4 @@ class EquivOp(Op):
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
-        return EquivOpVal(self.l.eval(env), self.r.eval(env)) 
+        return EquivOpVal(self.l.eval(env), self.r.eval(env))

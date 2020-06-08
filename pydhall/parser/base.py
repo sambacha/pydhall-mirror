@@ -10,6 +10,7 @@ from pydhall.ast.fetchable import ImportHashed, EnvVar, LocalFile
 from pydhall.ast.term import (
     Annot,
     App,
+    Assert,
     Binding,
     BoolLit,
     Builtin,
@@ -167,30 +168,12 @@ class Dhall(Parser):
     EscapedInterpolation <- "''${"
 
     SingleQuoteChar <-
-         ~"[\x20-\x7f]"
+         ~"[\\x20-\\x7f]"
        / ValidNonAscii
        / '\t'
        / EOL
 
-    SingleQuoteLiteral ← "''" EOL content:SingleQuoteContinue
-    # {
-    #     var str strings.Builder
-    #     var outChunks Chunks
-    #     chunk, ok := content.([]interface{})
-    #     for ; ok; chunk, ok = chunk[1].([]interface{}) {
-    #         switch e := chunk[0].(type) {
-    #         case []byte:
-    #             str.Write(e)
-    #         case Term:
-    #                 outChunks = append(outChunks, Chunk{str.String(), e})
-    #                 str.Reset()
-    #         default:
-    #             return nil, errors.New("unimplemented")
-    #         }
-    #     }
-    #     return removeLeadingCommonIndent(TextLit{Chunks: outChunks, Suffix: str.String()}), nil
-    # }
-
+    SingleQuoteLiteral ← "''" EOL content:SingleQuoteContinue { on_SingleQuoteLiteral }
 
     Interpolation ← "${" e:CompleteExpression "}" { @e }
 
@@ -456,6 +439,7 @@ class Dhall(Parser):
     #           return Pi{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
     #       }
     #     / o:OperatorExpression _ Arrow _ e:Expression { return NewAnonPi(o.(Term),e.(Term)), nil }
+    #     / WithExpression
     #     / Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression {
     #           return Merge{Handler:h.(Term), Union:u.(Term), Annotation:a.(Term)}, nil
     #       }
@@ -474,6 +458,7 @@ class Dhall(Parser):
     AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression { on_AnonPiExpression }
     MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
     IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
+    AssertExpression <- assert_ _ ':' _1 a:Expression { on_AssertExpression }
     Expression <-
         LambdaExpression
         / IfExpression
@@ -483,6 +468,8 @@ class Dhall(Parser):
         # / WithExpression
         / MergeExpression
         / EmptyList
+        # / toMapExpression ???? check differenc with toMapExpr
+        / AssertExpression
         / AnnotatedExpression
 
 
@@ -716,22 +703,87 @@ class Dhall(Parser):
     def on_Zero(self, _):
         return self.emit(NaturalLit, 0)
 
-    def on_DoubleQuoteLiteral(self, _, chunks):
-        """
-        '"' chunks:DoubleQuoteChunk* '"'
-        """
+    def built_text_literal(self, chunks):
         suffix = StringIO()
         out_chunks = []
         for chunk in chunks:
             if isinstance(chunk, str):
                 suffix.write(chunk)
             elif isinstance(chunk, Term):
-                out_chunks.append(self.emit(Chunk, suffix.getvalue(), chunk))
+                out_chunks.append((suffix.getvalue(), chunk))
                 suffix.seek(0)
                 suffix.truncate()
             else:
                 assert False
-        return self.emit(TextLit, out_chunks, suffix.getvalue())
+        return out_chunks, suffix.getvalue()
+
+    def on_DoubleQuoteLiteral(self, _, chunks):
+        """
+        '"' chunks:DoubleQuoteChunk* '"'
+        """
+        chunks, suffix = self.built_text_literal(chunks)
+        return self.emit(TextLit, [Chunk(*c) for c in chunks], suffix)
+
+    def _flatten_single_quote(self, lst):
+        lst = self.p_flatten_list(lst)
+        string = ""
+        for item in lst:
+            if isinstance(item, str):
+                string += item
+            else:
+                string += "|"
+        lines = string.splitlines()
+
+        def get_line_indent(l):
+            li = ""
+            for c in l:
+                if c in " \t":
+                    li += c
+                else:
+                    break
+            return li
+
+        indent = get_line_indent(lines[-1])
+        for l in lines:
+            li = get_line_indent(l)
+            if li and indent.startswith(li):
+                indent = li
+        return indent, lst[:-1]
+
+    def on_SingleQuoteLiteral(self, _, content):
+        indent, content = self._flatten_single_quote(content)
+        chunks, suffix = self.built_text_literal(content)
+        if chunks:
+            if chunks[0][0].startswith(indent):
+                chunks[0] = (chunks[0][0].replace(indent, "", 1), chunks[0][1])
+        else:
+            if suffix.startswith(indent):
+                suffix = suffix.replace(indent, "", 1)
+        # print(chunks, suffix)
+        if indent:
+            chunks = [Chunk(c[0].replace("\n"+indent, "\n"), c[1]) for c in chunks]
+            suffix = suffix.replace("\n"+indent, "\n")
+        else:
+            chunks = [Chunk(*c) for c in chunks]
+        return self.emit(TextLit, chunks, suffix)
+
+    # {
+    #     var str strings.Builder
+    #     var outChunks Chunks
+    #     chunk, ok := content.([]interface{})
+    #     for ; ok; chunk, ok = chunk[1].([]interface{}) {
+    #         switch e := chunk[0].(type) {
+    #         case []byte:
+    #             str.Write(e)
+    #         case Term:
+    #                 outChunks = append(outChunks, Chunk{str.String(), e})
+    #                 str.Reset()
+    #         default:
+    #             return nil, errors.New("unimplemented")
+    #         }
+    #     }
+    #     return removeLeadingCommonIndent(TextLit{Chunks: outChunks, Suffix: str.String()}), nil
+    # }
 
     def on_NumericDoubleLiteral(self, val):
         return self.emit(DoubleLit, float(self.p_flatten(val)))
@@ -940,3 +992,6 @@ class Dhall(Parser):
         if not optclauses:
             return []
         return [optclauses[0]] + [i[2] for i in optclauses[2]]
+
+    def on_AssertExpression(self, _, a):
+        return self.emit(Assert, a)

@@ -84,6 +84,9 @@ class EmptyList(Term):
     def subst(self, name: str, replacement: Term, level: int = 0):
         return EmptyList(self.type_.subst(name, replacement, level))
 
+    def rebind(self, local, level=0):
+        return EmptyList(self.type_.rebind(local, level))
+
 
 class NonEmptyList(Term):
     attrs = ["content"]
@@ -107,3 +110,10 @@ class NonEmptyList(Term):
 
     def cbor_values(self):
         return [4, None] + [e.cbor_values() for e in self.content]
+
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return NonEmptyList([i.subst(name, replacement, level) for i in self.content])
+
+    def rebind(self, local, level=0):
+        return NonEmptyList([i.rebind(local, level) for i in self.content])
+

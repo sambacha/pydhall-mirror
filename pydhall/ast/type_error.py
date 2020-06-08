@@ -68,3 +68,6 @@ expected %s but got %s"""
 
 first element had type %s but there was an element of type %s"""
     CANT_OP = "❰%s❱ only works on ❰%s❱s"
+    ASSERTION_FAILED = """Assertion failed
+
+%s is not equivalent to %s"""

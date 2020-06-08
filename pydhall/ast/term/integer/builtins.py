@@ -2,7 +2,7 @@ from .base import IntegerLitValue, IntegerTypeValue
 from ..base import Callable, Builtin, Value
 from ..natural.base import NaturalTypeValue, NaturalLitValue
 from ..double.base import DoubleLitValue
-from ..text.base import PlainTextLit
+from ..text.base import PlainTextLitValue
 
 
 class IntegerClamp(Builtin):
@@ -40,5 +40,6 @@ class IntegerShow(Builtin):
 
     def __call__(self, x):
         if isinstance(x, IntegerLitValue):
-            return PlainTextLit(str(x))
+            prefix = x > 0 and "+" or ""
+            return PlainTextLitValue(prefix + str(x))
         return None
