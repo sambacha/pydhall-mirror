@@ -5,8 +5,8 @@ from io import StringIO
 
 from fastidious import Parser
 
-from pydhall.ast.node import BlockComment, LineComment
-from pydhall.ast.term import (
+from pydhall.ast.comment import BlockComment, LineComment
+from pydhall.ast import (
     Annot,
     App,
     Assert,
@@ -84,7 +84,13 @@ class Dhall(Parser):
     BlockComment <- "{-" BlockCommentContinue
 
     BlockCommentChar <-
-          ~"[\\x20-\\x7f]"
+          ~"[\\x20-\\x2c]"
+          # '-' is maybe the end of the comment
+        / ~"[\\x2e-\\x7a]"
+          # '{' could open a nested comment
+        / ~"[\\x7c-\\x7f]"
+        / "-" !"}"
+        / "{" !"-"
         / ValidNonAscii
         / "\t"
         / EOL
@@ -92,7 +98,7 @@ class Dhall(Parser):
     BlockCommentContinue <-
           "-}"
         / BlockComment BlockCommentContinue
-        / BlockCommentChar BlockCommentContinue
+        / BlockCommentChar+ BlockCommentContinue
 
     NotEOL <- ~"[\\x20-\\x7f]" / ValidNonAscii / "\t"
 

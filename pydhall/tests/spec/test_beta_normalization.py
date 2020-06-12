@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.term import Term
+from pydhall.ast import Term
 
 from . import FAILURES
 from .utils import make_test_file_pairs

@@ -4,7 +4,7 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.term import LocalFile
+from pydhall.ast import LocalFile
 
 from .utils import make_test_file_pairs
 

@@ -1,4 +1,4 @@
-from ..type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from .type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 from .base import Term, EvalEnv, Value, QuoteContext, TypeContext
 from .boolean.base import True_, False_, BoolTypeValue, TypeValue

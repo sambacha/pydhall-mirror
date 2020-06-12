@@ -4,7 +4,7 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.term import Term
+from pydhall.ast import Term
 from pydhall.ast.type_error import DhallTypeError
 
 from .utils import make_test_file_pairs, collect_test_files

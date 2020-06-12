@@ -7,8 +7,8 @@ from math import inf, nan
 
 import pytest
 
-from pydhall.ast.node import BlockComment, LineComment
-from pydhall.ast.term import (
+from pydhall.ast.comment import BlockComment, LineComment
+from pydhall.ast import (
     Binding,
     BoolLit,
     CompleteOp,
@@ -43,6 +43,14 @@ def test_line_comment():
     p = Dhall("--\nlet foo = 1 in foo")
     result = p.LineComment()
     assert result == LineComment("", offset=0)
+
+
+def test_looong_comment():
+    "Long comments used to fail on recursion error"
+    cmt = "{-" + (" " * 5000) + "-}"
+    p = Dhall(cmt)
+    result = p.BlockComment()
+    assert result == BlockComment(cmt, offset=0)
 
 
 def test_block_comment():

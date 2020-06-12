@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydhall.parser import Dhall
 from pydhall.ast.type_error import DhallTypeError
-from pydhall.ast.term.import_.base import LocalFile
+from pydhall.ast.import_.base import LocalFile
 
 
 def normalize(args):

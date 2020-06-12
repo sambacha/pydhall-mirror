@@ -6,7 +6,7 @@ import pytest
 from fastidious.parser_base import ParserError
 
 from pydhall.parser import Dhall
-from pydhall.ast.term import Term
+from pydhall.ast import Term
 
 from . import FAILURES
 from .utils import make_test_file_pairs, collect_test_files
