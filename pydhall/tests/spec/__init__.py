@@ -85,10 +85,7 @@ FAILURES = [
     "dhall-lang/tests/import/success/noHeaderForwarding",
     "dhall-lang/tests/import/success/headerForwarding",
     "dhall-lang/tests/import/success/customHeaders",
-    "dhall-lang/tests/import/success/unit/AlternativeNoError3",
     "dhall-lang/tests/import/success/unit/RemoteAsText",
-    "dhall-lang/tests/import/success/unit/EnvSetAsText",
-    "dhall-lang/tests/import/success/unit/EnvSet",
     "dhall-lang/tests/import/success/unit/AlternativeHashMismatch",
     "dhall-lang/tests/import/success/unit/SimpleRemote",
 
