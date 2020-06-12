@@ -1,0 +1,19 @@
+image: python:3.8
+
+stages:
+  - lint
+  - tests
+
+spec_tests:
+  stage: tests
+  before_script:
+    - apt-get install git
+    - git submodule update --init --recursive
+    - pwd
+    - ls
+    - pip install -r requirements_dev.txt
+    - pip install -r requirements.txt
+    - pip install -e .
+  script:
+    - make coverage
+

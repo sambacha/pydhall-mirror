@@ -1,3 +1,5 @@
+[![coverage report](https://gitlab.com/lisael/pydhall/badges/master/coverage.svg)](https://gitlab.com/lisael/pydhall/-/commits/master)
+
 # Pydhall
 
 Python Dhall implementation
