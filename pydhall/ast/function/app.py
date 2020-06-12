@@ -11,17 +11,11 @@ class AppValue(Value):
     @classmethod
     def build(cls, *args):
         assert args
-        # print("***********")
-        # print(args)
         if len(args) == 1:
             return args[0]
-        # if args[1] == 13.37:
-        #     import ipdb; ipdb.set_trace()
         if isinstance(args[0], Callable):
-            # try to apply the function
             result = args[0](args[1])
             if result is None:
-                # print("None")
                 result = AppValue(args[0], args[1])
         else:
             result = AppValue(args[0], args[1])
@@ -30,9 +24,6 @@ class AppValue(Value):
 
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
-        # print("-------------")
-        # print(repr(self.fn))
-        # print(repr(self.arg))
         return App(
             self.fn.quote(ctx, normalize),
             self.arg.quote(ctx, normalize))
@@ -41,6 +32,9 @@ class AppValue(Value):
         if not isinstance(other, AppValue):
             return False
         return self.fn.alpha_equivalent(other.fn, level) and self.arg.alpha_equivalent(other.arg, level)
+
+    def copy(self):
+        return AppValue(self.fn.copy(), self.arg.copy())
 
 
 class App(Term):
@@ -76,8 +70,6 @@ class App(Term):
         return AppValue.build(self.fn.eval(env), self.arg.eval(env))
 
     def cbor_values(self):
-        # print(repr(self.fn))
-        # print(repr(self.arg))
         fn = self.fn
         args = [self.arg.cbor_values()]
         while True:

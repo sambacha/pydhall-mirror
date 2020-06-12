@@ -36,6 +36,10 @@ class PlainTextLitValue(str, Value):
     def alpha_equivalent(self, other, level=0):
         return self.__class__ == other.__class__ and self == other
 
+    def copy(self):
+        # TODO : return self ?
+        return self
+
 
 class TextLitValue(Value):
     def __init__(self, chunks, suffix):
@@ -60,6 +64,9 @@ class TextLitValue(Value):
             if not c.expr.alpha_equivalent(oc.expr, level):
                 return False
         return True
+
+    def copy(self):
+        return self
 
 
 class TextLit(Term):

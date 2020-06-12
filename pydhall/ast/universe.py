@@ -10,6 +10,9 @@ class UniverseValue(Value):
         self._type = type
         self._rank = rank
 
+    def __hash__(self):
+        return hash(self.name)
+
     def __repr__(self):
         return f"UniverseValue({self.name})"
 
@@ -37,6 +40,9 @@ class UniverseValue(Value):
 
     def __ge__(self, other):
         return self._rank >= other._rank
+
+    def copy(self):
+        return self
 
 
 SortValue = UniverseValue("Sort", None, 30)

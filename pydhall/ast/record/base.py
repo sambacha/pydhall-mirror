@@ -34,6 +34,9 @@ class RecordLitValue(dict, Value):
                 return False
         return True
 
+    def copy(self):
+        return RecordLitValue({k: v.copy() for k, v in self.items()})
+
 
 class RecordLit(DictTerm):
     def cbor_values(self):
@@ -64,6 +67,9 @@ class RecordTypeValue(dict, Value):
         ctx = ctx if ctx is not None else QuoteContext()
         return RecordType({k: v.quote(ctx, normalize) for k, v in self.items()})
 
+    def __hash__(self):
+        return hash(((k, self[v]) for k in sorted(self.keys())))
+
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         if not isinstance(other, RecordTypeValue):
             return False
@@ -90,6 +96,9 @@ class RecordTypeValue(dict, Value):
             result[k] = l_field.merge(v)
 
         return RecordTypeValue(result)
+
+    def copy(self):
+        return RecordTypeValue({k: v.copy() for k, v in self.items()})
 
 
 class RecordType(DictTerm):

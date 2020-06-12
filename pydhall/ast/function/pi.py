@@ -6,6 +6,8 @@ from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 from .var import _QuoteVar
 
 
+_cache = {}
+
 class PiValue(Value):
     def __init__(self, label, domain, codomain=None):
         self.label = label
@@ -13,15 +15,24 @@ class PiValue(Value):
         self.codomain = codomain
 
     def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
 
+        ctx = ctx if ctx is not None else QuoteContext()
         label = "_" if normalize else self.label
+        # if not ctx:
+        #     try:
+        #         res = _cache[(label, self.domain, self.codomain)]
+        #         # print("Hit")
+        #         return res
+        #     except KeyError:
+        #         pass
+        # print("Miss")
         body_val = self.codomain(_QuoteVar(label, ctx.get(label, 0)))
         res = Pi(
             label,
             self.domain.quote(ctx, normalize),
             body_val.quote(ctx.extend(label), normalize))
-        # print(repr(res))
+        # if not ctx:
+        #     _cache[(label, self.domain, self.codomain)] = res
         return res
 
     def __str__(self):
@@ -35,6 +46,9 @@ class PiValue(Value):
         my_codomain = self.codomain(_QuoteVar("_", level))
         other_codomain = other.codomain(_QuoteVar("_", level))
         return my_codomain.alpha_equivalent(other_codomain, level + 1)
+
+    def copy(self):
+        return PiValue(self.label, self.domain.copy(), self.codomain)
 
 
 def FnType(label: str, domain: Value, codomain: Value) -> PiValue:

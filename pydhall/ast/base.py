@@ -27,10 +27,16 @@ class TypeContext(dict):
     def freshLocal(self, name):
         return LocalVar(name=name, index=len(self.get(name, tuple())))
 
+    def __hash__(self):
+        return hash((k, v) for k, v in self.items())
+
 
 class EvalEnv(dict):
     def copy(self):
-        return deepcopy(self)
+        result = {}
+        for k, v in self.items():
+            result[k] = [i.copy() for i in v]
+        return EvalEnv(result)
 
     def insert(self, name, value):
         self.setdefault(name, []).insert(0, value)
@@ -38,6 +44,7 @@ class EvalEnv(dict):
 
 class Value:
     _quote = None
+    attrs = None
 
     def __str__(self):
         return str(self.as_python())
@@ -57,6 +64,9 @@ class Value:
             raise NotImplementedError(f"{self.__class__.__name__}.quote")
         return self._quote
 
+    def copy(self):
+        assert False, f"{self.__class__}"
+
 
 class Callable(Value):
     def __call__(self, arg):
@@ -73,6 +83,8 @@ class FrozenError(Exception):
 
 
 class BuiltinValue(Value):
+    __slots__ = ["name"]
+
     def __init__(self, name):
         self.name = name
 
@@ -87,6 +99,9 @@ class BuiltinValue(Value):
 
     def alpha_equivalent(self, other, level=0):
         return other.name is self.name
+
+    def copy(self):
+        return self
 
 
 class Node():
@@ -107,17 +122,8 @@ class Node():
         else:
             self.src = parser.name
 
-    def __setattr__(self, name, value):
-        if not hasattr(self, name) or name in ["__class__", "parser", "offset"]:
-            super().__setattr__(name, value)
-        else:
-            raise FrozenError(name)
-
     def __hash__(self):
         return hash_all([getattr(self, attr) for attr in self.attrs])
-        # return hash(
-        #     (self.__class__, self.offset)
-        #     + tuple(self._hash_attr(attr) for attr in self.attrs))
 
     def _hash_attr(self, name):
         attr = getattr(self, name)
@@ -143,7 +149,7 @@ class Node():
     def copy(self, **kwargs):
         new = deepcopy(self)
         for k, v in kwargs.items():
-            object.__setattr__(new, k, v)
+            setattr(new, k, v)
         return new
 
     def resolve(self, *ancestors):
@@ -315,11 +321,19 @@ class BuiltinMeta(type):
         # TODO: Make this a metaclass rather than passing the state
         # arround
         class val(Callable):
+            # __slots__ = ["arrity", "_call", "fn_class", "args"]
             def __init__(self, arrity, call, fn_class, args=None):
                 self.arrity = arrity
                 self._call = call
                 self.fn_class = fn_class
                 self.args = args if args is not None else []
+
+            def copy(self):
+                if self.args is None:
+                    args = None
+                else:
+                    args = [i.copy() for i in self.args]
+                return self.__class__(self.arrity, self._call, self.fn_class, args)
 
             def __call__(self, x: Value) -> Value:
                 args = list(self.args)
@@ -413,6 +427,8 @@ class _AtomicLit(Term):
 
 
 class OpValue(Value):
+    __slots__ = ["l", "r"]
+
     def __init__(self, l, r):
         self.l = l
         self.r = r
@@ -423,6 +439,9 @@ class OpValue(Value):
         return (
             self.l.alpha_equivalent(other.l, level)
             and self.r.alpha_equivalent(other.r, level))
+
+    def copy(self):
+        return self.__class__(self.l.copy(), self.r.copy())
 
 
 class Op(Term):
@@ -465,6 +484,9 @@ class Op(Term):
             self.l.rebind(local, level),
             self.r.rebind(local, level),
         )
+
+    def __str__(self):
+        return f"{self.l} {self.operators[0]} {self.r}"
 
 
 class _FreeVar(Value):
@@ -539,6 +561,8 @@ class LocalVar(Term):
 
 
 class LocalVarValue(Value):
+    __slots__ = ["name", "index"]
+
     def __init__(self, name, index):
         self.name = name
         self.index = index
@@ -548,3 +572,9 @@ class LocalVarValue(Value):
 
     def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
         return other.__class__ is LocalVarValue and self.index == other.index and self.name == other.name
+
+    def copy(self):
+        return LocalVarValue(self.name, self.index)
+
+    def __repr__(self):
+        return f"LocalVarValue({self.name}, {self.index})"

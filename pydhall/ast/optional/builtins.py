@@ -17,29 +17,6 @@ class OptionalBuild(Builtin):
         return AppValue.build(x, OptionalOf(type_), some, NoneOf(type_))
 
 
-
-class _OptionalFoldValue(Callable):
-    def __init__(self, typ1=None, opt=None, typ2=None, some=None):
-        self.typ1 = typ1
-        self.opt = opt
-        self.typ2 = typ2
-        self.some = some
-
-
-    def quote(self, ctx=None, normalize=False):
-        ctx = ctx if ctx is not None else QuoteContext()
-        result = OptionalFold()
-        from .. import App
-        for arg in ["typ1", "opt", "typ2", "some"]:
-            nextarg = getattr(self, arg)
-            if nextarg is None:
-                return result
-            result = App(result, nextarg.quote(ctx, normalize))
-        return result
-
-
-OptionalFoldValue = _OptionalFoldValue()
-
 class OptionalFold(Builtin):
     _literal_name = "Optional/fold"
     _type = "∀(a : Type) → Optional a → ∀(optional : Type) → ∀(just : a → optional) → ∀(nothing : optional) → optional"
@@ -50,24 +27,3 @@ class OptionalFold(Builtin):
         if isinstance(opt, NoneOf):
             return x
         return None
-
-    def oldtype(self, ctx=None):
-        # TODO: understand and document this.
-        ctx = ctx if ctx is not None else TypeContext()
-        return PiValue(
-            "a",
-            TypeValue,
-            lambda a: FnType(
-                "_",
-                OptionalOf(a),
-                PiValue(
-                    "optional",
-                    TypeValue,
-                    lambda optional: FnType(
-                        "just",
-                        FnType("_", a, optional),
-                        FnType("nothing", optional, optional)
-                    )
-                )
-            )
-        )

@@ -78,6 +78,9 @@ class ProjectValue(Value):
                 return False
         return self.record.alpha_equivalent(other.record, level)
 
+    def copy(self):
+        return ProjectValue(self.record.copy(), self.field_names)
+
 
 class Project(Term):
     attrs = ["record", "field_names"]
@@ -162,6 +165,9 @@ class FieldValue(Value):
         if self.field_name != other.field_name:
             return False
         return self.record.alpha_equivalent(other.record, level)
+
+    def copy(self):
+        return FieldValue(self.record.copy(), self.field_name)
 
 
 class Field(Term):

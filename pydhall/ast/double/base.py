@@ -59,6 +59,10 @@ class DoubleLitValue(float, Value):
             return True
         return self == other
 
+    def copy(self):
+        return self
+
+
 class DoubleLit(_AtomicLit):
     _type = DoubleTypeValue
     _cbor_idx = -3

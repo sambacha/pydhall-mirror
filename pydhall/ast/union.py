@@ -26,6 +26,9 @@ class UnionTypeValue(dict, Value):
                 result[k] = v.quote(ctx, normalize)
         return UnionType(result)
 
+    def __hash__(self):
+        return hash(((k, self[v]) for k in sorted(self.keys())))
+
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         if not isinstance(other, UnionTypeValue):
             return False
@@ -39,6 +42,15 @@ class UnionTypeValue(dict, Value):
             if not v.alpha_equivalent(other[k], level):
                 return False
         return True
+
+    def copy(self):
+        result = {}
+        for k, v in self.items():
+            if v is None:
+                result[k] = None
+            else:
+                result[k] = v.copy()
+        return UnionTypeValue(result)
 
 
 class UnionType(dict, Term):
@@ -129,24 +141,15 @@ class UnionVal(Value):
 
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
-        # var result term.Term = term.Field{
-        #     Record:    quoteWith(ctx, shouldAlphaNormalize, v.Type),
-        #     FieldName: v.Alternative,
-        # }
         from .field import Field
         result = Field(self.type_.quote(ctx, normalize), self.alternative)
-
-        # if v.Val != nil {
-        #     result = term.App{
-        #         Fn:  result,
-        #         Arg: quoteWith(ctx, shouldAlphaNormalize, v.Val),
-        #     }
-        # }
         if self.val is not None:
             return App(result, self.val.quote(ctx, normalize))
-
-        # return result
         return result
+
+    def copy(self):
+        val = self.val.copy() if self.val is not None else None
+        return UnionVal(self.type_.copy(), self.alternative, val)
 
 class MergeValue(Value):
     def __init__(self, handler, union, annotation=None):
@@ -177,6 +180,13 @@ class MergeValue(Value):
         if not self.handler.alpha_equivalent(other.handler, level):
             return False
         return True
+
+    def copy(self):
+        if self.annotation is not None:
+            annot = self.annotation.copy()
+        else:
+            annot = None
+        return MergeValue(self.handler.copy(), self.union.copy(), annot)
 
 
 class Merge(Term):

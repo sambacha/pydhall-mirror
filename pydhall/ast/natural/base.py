@@ -37,6 +37,9 @@ class NaturalLitValue(int, Value):
     def alpha_equivalent(self, other, level=0):
         return self == other
 
+    def copy(self):
+        return self
+
 
 class NaturalLit(_AtomicLit):
     _type = NaturalTypeValue

@@ -30,8 +30,12 @@ class ListOf(Value):
             return False
         return self.type_.alpha_equivalent(other.type_, level)
 
+    def copy(self):
+        return ListOf(self.type_.copy())
+
 
 class NonEmptyListValue(Value):
+
     def __init__(self, content):
         self.content = content
 
@@ -49,6 +53,9 @@ class NonEmptyListValue(Value):
                 return False
         return True
 
+    def copy(self):
+        return NonEmptyListValue([i.copy() for i in self.content])
+
 
 class EmptyListValue(Value):
     def __init__(self, type_):
@@ -62,6 +69,9 @@ class EmptyListValue(Value):
         if not isinstance(other, self.__class__):
             return False
         return self.type_.alpha_equivalent(other.type_, level)
+
+    def copy(self):
+        return EmptyListValue(self.type_.copy())
 
 
 # Terms

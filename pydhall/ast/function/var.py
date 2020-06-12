@@ -1,6 +1,7 @@
 from ..base import Term, Value, Var
 
 class _QuoteVar(Value):
+    __slots__ = ["name", "index"]
 
     def __init__(self, name, index):
         self.name = name
@@ -12,3 +13,9 @@ class _QuoteVar(Value):
 
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         return other.__class__ is _QuoteVar and self.index == other.index and self.name == other.name
+
+    def copy(self):
+        return _QuoteVar(self.name, self.index)
+
+    def __repr__(self):
+        return f"_QuoteVar({self.name}, {self.index})"

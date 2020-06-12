@@ -59,11 +59,13 @@ class Import(Term):
         if self.import_mode == Import.Mode.RawText:
             expr = PlainTextLit(content)
         else:
+            print(here.path)
             from pydhall.parser import parse
             expr = parse(content)
             expr = expr.resolve(*imports)
         _ = expr.type()
         expr = expr.eval().quote()
+        print("done: ", here.path)
             # TODO: check hash if provided
         if self.import_mode == Import.Mode.Code:
             CACHE[here] = expr

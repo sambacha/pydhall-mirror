@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from ..base import Term, Value, EvalEnv, TypeContext, QuoteContext, Callable
 
 from .pi import PiValue
@@ -5,6 +7,8 @@ from .var import _QuoteVar
 
 
 class LambdaValue(Callable):
+    __slots__ = ["label", "domain", "fn"]
+
     def __init__(self, label, domain, fn):
         self.label = label
         self.domain = domain
@@ -31,9 +35,32 @@ class LambdaValue(Callable):
         other_val = other(_QuoteVar("_", level))
         return my_val.alpha_equivalent(other_val, level + 1)
 
+    def copy(self):
+        # TODO: deepcopy needed ?
+        return LambdaValue(self.label, self.domain.copy(), self.fn)
+
+
+def memoize(fn):
+    def wrapped(self, ctx=None):
+        if ctx is not None:
+            try:
+                res = self._cache[ctx]
+                print("Hit")
+                return res
+            except KeyError:
+                print("Miss")
+                pass
+        result = fn(self, ctx)
+        self._cache[ctx] = result
+        return result
+    return wrapped
 
 class Lambda(Term):
     attrs = ["label", "type_", "body"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._cache = {}
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -90,6 +117,9 @@ class Lambda(Term):
 
     def format_dhall(self):
         return (f"λ({self.label} : {self.type_.dhall()} ) →", self.body.format_dhall())
+
+    def __str__(self):
+        return f"λ({self.label} : {self.type_.dhall()} ) → {self.body}"
 
 
 

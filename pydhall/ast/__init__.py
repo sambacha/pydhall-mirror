@@ -62,6 +62,9 @@ class AssertValue(Value):
         ctx = ctx if ctx is not None else QuoteContext()
         return Assert(self.annotation.quote(ctx, normalize))
 
+    def copy(self):
+        return AssertValue(self.annotation.copy())
+
 
 class Assert(Term):
     attrs = ["annotation"]

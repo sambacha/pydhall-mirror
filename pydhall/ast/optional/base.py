@@ -36,6 +36,9 @@ class OptionalOf(DependentValue):
             return False
         return self.type_.alpha_equivalent(other.type_)
 
+    def copy(self):
+        return OptionalOf(self.type_.copy())
+
 
 ## Some
 class SomeValue(Value):
@@ -50,6 +53,9 @@ class SomeValue(Value):
         if not isinstance(other, self.__class__):
             return False
         return self.value.alpha_equivalent(other.value, level)
+
+    def copy(self):
+        return SomeValue(self.value.copy())
 
 
 class Some(Term):
@@ -89,6 +95,9 @@ class NoneOf(Value):
         if not isinstance(other, self.__class__):
             return False
         return self.type_.alpha_equivalent(other.type_, level)
+
+    def copy(self):
+        return NoneOf(self.type_.copy())
 
 
 class _NoneValue(Callable):

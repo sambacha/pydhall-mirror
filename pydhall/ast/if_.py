@@ -25,6 +25,9 @@ class IfValue(Value):
             and self.true.alpha_equivalent(other.true, level)
             and self.false.alpha_equivalent(other.false, level))
 
+    def copy(self):
+        return IfValue(self.cond.copy(), self.true.copy(), self.false.copy())
+
 
 class If(Term):
     attrs = ["cond", "true", "false"]
