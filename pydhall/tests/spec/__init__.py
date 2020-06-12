@@ -1,4 +1,11 @@
 FAILURES = [
+    ## Hashes
+    # Fancy unicode
+    "dhall-lang/tests/semantic-hash/success/prelude/Text/show/0",
+    "dhall-lang/tests/semantic-hash/success/prelude/Text/show/1",
+    #integer bounds when comverted to Double
+    "dhall-lang/tests/semantic-hash/success/simple/integerToDouble",
+
     # Beta-norm
     # Unicode quirks
     "dhall-lang/tests/normalization/success/unit/TextShowAllEscapes",
@@ -6,11 +13,11 @@ FAILURES = [
     "dhall-lang/tests/type-inference/success/CacheImports",
     "dhall-lang/tests/type-inference/success/CacheImportsCanonicalize",
 
-    # Bug in prelude eval
-    # "dhall-lang/tests/type-inference/success/prelude",
+    # Bug in one Text/show assert
+    "dhall-lang/tests/type-inference/success/prelude",
 
     ## parser
-    # Using is not implemented. Not planned yet
+    # Using is not implemented. Not planned
     "dhall-lang/tests/parser/success/unit/import/Headers",
     "dhall-lang/tests/parser/success/unit/import/inlineUsing",
     "dhall-lang/tests/parser/success/usingToMap",
@@ -20,7 +27,7 @@ FAILURES = [
     # to RemoteFile.
     "dhall-lang/tests/parser/success/unit/import/urls/emptyQuery",
 
-    # missing import implementation
+    # Remote imports are not supported (and Posix envvars)
     "dhall-lang/tests/parser/success/unit/import/quotedPaths",
     "dhall-lang/tests/parser/success/unit/import/environmentVariablePosix",
     "dhall-lang/tests/parser/success/unit/import/HeadersHashPrecedence",
@@ -78,27 +85,14 @@ FAILURES = [
     "dhall-lang/tests/import/success/noHeaderForwarding",
     "dhall-lang/tests/import/success/headerForwarding",
     "dhall-lang/tests/import/success/customHeaders",
-    # "dhall-lang/tests/import/success/unit/AlternativeNestedImportError",
     "dhall-lang/tests/import/success/unit/AlternativeNoError3",
     "dhall-lang/tests/import/success/unit/RemoteAsText",
     "dhall-lang/tests/import/success/unit/EnvSetAsText",
-    # "dhall-lang/tests/import/success/unit/Normalize",
-    # "dhall-lang/tests/import/success/unit/AlternativeNoError1",
-    # "dhall-lang/tests/import/success/unit/Simple",
-    # "dhall-lang/tests/import/success/unit/AlternativeEnv",
-    # "dhall-lang/tests/import/success/unit/SimpleHash",
-    # "dhall-lang/tests/import/success/unit/AlternativeSubExpr",
-    # "dhall-lang/tests/import/success/unit/AlternativeNoError2",
-    # "dhall-lang/tests/import/success/unit/AlternativeChain1",
     "dhall-lang/tests/import/success/unit/EnvSet",
-    # "dhall-lang/tests/import/success/unit/AlternativeChain2",
-    # "dhall-lang/tests/import/success/unit/QuotedPath",
-    # "dhall-lang/tests/import/success/unit/FilenameWithSpaces",
-    # "dhall-lang/tests/import/success/unit/IgnorePoisonedCache",
     "dhall-lang/tests/import/success/unit/AlternativeHashMismatch",
-    # "dhall-lang/tests/import/success/unit/AlternativeImportError",
     "dhall-lang/tests/import/success/unit/SimpleRemote",
-    # "dhall-lang/tests/import/success/unit/AlternativeParseError",
+
+    # as Location is not supported yet
     "dhall-lang/tests/import/success/unit/asLocation/RemoteChainEnv",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteCanonicalize4",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteCanonicalize2",
@@ -108,7 +102,6 @@ FAILURES = [
     "dhall-lang/tests/import/success/unit/asLocation/Chain1",
     "dhall-lang/tests/import/success/unit/asLocation/Relative2",
     "dhall-lang/tests/import/success/unit/asLocation/Home",
-    # "dhall-lang/tests/import/success/unit/asLocation/Missing",
     "dhall-lang/tests/import/success/unit/asLocation/Relative1",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteChainMissing",
     "dhall-lang/tests/import/success/unit/asLocation/Canonicalize4",
@@ -122,13 +115,9 @@ FAILURES = [
     "dhall-lang/tests/import/success/unit/asLocation/Absolute",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteCanonicalize1",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteCanonicalize3",
-    # "dhall-lang/tests/import/success/unit/asLocation/DontTryResolving",
     "dhall-lang/tests/import/success/unit/asLocation/Canonicalize5",
     "dhall-lang/tests/import/success/unit/asLocation/RemoteChain1",
-    # "dhall-lang/tests/import/success/unit/AsText",
-    # "dhall-lang/tests/import/success/unit/AlternativeTypeError",
-    # "dhall-lang/tests/import/success/nestedHash",
+
+    # No remote imports yet
     "dhall-lang/tests/import/success/hashFromCache",
-
-
 ]
