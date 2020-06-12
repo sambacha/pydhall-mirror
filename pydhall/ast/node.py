@@ -2,11 +2,7 @@ from .term.base import Node
 
 
 class Comment(Node):
-    hash_attrs = ["content"]
-
-    def __init__(self, content, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.content = content
+    attrs = ["content"]
 
 
 class LineComment(Comment):

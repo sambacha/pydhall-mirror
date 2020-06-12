@@ -5,7 +5,7 @@ from .ops import _PlusOp
 from ..integer.base import IntegerLitValue
 from ..boolean.base import True_, False_
 from ..text.base import PlainTextLitValue
-from ...value import _App as AppValue
+from ..function.app import AppValue
 from ..function.lambda_ import LambdaValue
 
 
@@ -33,7 +33,7 @@ class NaturalFold(Builtin):
         if isinstance(n, NaturalLitValue):
             result = zero
             for i in range(n):
-                result = apply(succ, result)
+                result = AppValue.build(succ, result)
             return result
 
 

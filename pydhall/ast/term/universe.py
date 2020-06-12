@@ -17,7 +17,7 @@ class UniverseValue(Value):
         return self.name
 
     def alpha_equivalent(self, other, level=0):
-        return other is self
+        return other.name == self.name
 
     def quote(self, ctx=None, normalize=False):
         from . import Universe
@@ -66,7 +66,7 @@ class Sort(Universe):
     _eval = SortValue
     _rank = 30
 
-    def type(self):
+    def type(self, ctx=None):
         raise DhallTypeError(TYPE_ERROR_MESSAGE.UNTYPED)
 
 

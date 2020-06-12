@@ -31,6 +31,9 @@ class BoolLitValue(Value):
     def __eq__(self, other):
         return other.__class__ == self.__class__
 
+    def alpha_equivalent(self, other, level=0):
+        return other == self
+
 
 class _False(BoolLitValue):
     type = BoolTypeValue

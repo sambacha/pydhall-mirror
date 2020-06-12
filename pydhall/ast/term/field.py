@@ -1,14 +1,82 @@
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
-from .base import Term, Value, TypeContext, EvalEnv
+from .base import Term, Value, TypeContext, EvalEnv, QuoteContext
 
 from .record.base import RecordTypeValue, RecordLitValue
 from .record.ops import RecordMergeOpValue, RightBiasedRecordMergeOpValue
 from .union import UnionTypeValue, UnionType, UnionConstructor, UnionVal
 from .function.pi import PiValue
 
+
+class ProjectType(Term):
+    attrs = ["record", "selector"]
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+
+        record_type = self.record.type(ctx)
+        if not isinstance(record_type, RecordTypeValue):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_PROJECT)
+
+        _ = self.selector.type(ctx)
+        selector = self.selector.eval()
+        if not isinstance(selector, RecordTypeValue):
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_PROJECT_BY_EXPRESSION)
+
+        result = {}
+        for name, typ in selector.items():
+            try:
+                field_type = record_type[name]
+            except KeyError:
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD)
+            if not field_type @ typ:
+                raise DhallTypeError(
+                    TYPE_ERROR_MESSAGE.PROJECTION_TYPE_MISMATCH % (
+                        typ.quote(), field_type.quote()))
+            result[name] = typ
+        return RecordTypeValue(result)
+
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+
+        s = self.selector.eval(env)
+        field_names = list(s.keys())
+        return Project(self.record, field_names).eval(env)
+
+    def cbor_values(self):
+        return [10, self.record.cbor_values(), [self.selector.cbor_values()]]
+
+    def subst(self, name: str, replacement: Term, level: int = 0):
+        return ProjectType(
+            self.record.subst(name, replacement, level),
+            self.selector.subst(name, replacement, level)
+        )
+
+    def rebind(self, local, level=0):
+        return ProjectType(
+            self.record.rebind(local, level),
+            self.selector.rebind(local, level)
+        )
+
+
 class ProjectValue(Value):
-    pass
+    def __init__(self, record, field_names):
+        self.record = record
+        self.field_names = field_names
+
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+        ctx = ctx if ctx is not None else QuoteContext()
+        return Project(self.record.quote(ctx, normalize), self.field_names)
+
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, ProjectValue):
+            return False
+        if len(self.field_names) != len(other.field_names):
+            return False
+        for i, name in enumerate(self.field_names):
+            if name != other.field_names[i]:
+                return False
+        return self.record.alpha_equivalent(other.record, level)
 
 
 class Project(Term):
@@ -30,50 +98,15 @@ class Project(Term):
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD)
         return RecordTypeValue(fields)
 
+    def cbor_values(self):
+        return [10, self.record.cbor_values()] + self.field_names
+
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
 
-        # record := evalWith(t.Record, e)
         record = self.record.eval(env)
-
-        # fieldNames := t.FieldNames
-        # sort.Strings(fieldNames)
         self.field_names.sort()
 
-        # // simplifications
-        # for {
-        #     if proj, ok := record.(project); ok {
-        #         record = proj.Record
-        #         continue
-        #     }
-        #     op, ok := record.(oper)
-        #     if ok && op.OpCode == term.RightBiasedRecordMergeOp {
-        #         if r, ok := op.R.(RecordLit); ok {
-        #             notOverridden := []string{}
-        #             overrides := RecordLit{}
-        #             for _, fieldName := range fieldNames {
-        #                 if override, ok := r[fieldName]; ok {
-        #                     overrides[fieldName] = override
-        #                 } else {
-        #                     notOverridden = append(notOverridden, fieldName)
-        #                 }
-        #             }
-        #             if len(notOverridden) == 0 {
-        #                 return overrides
-        #             }
-        #             return oper{
-        #                 OpCode: term.RightBiasedRecordMergeOp,
-        #                 L: project{
-        #                     Record:     op.L,
-        #                     FieldNames: notOverridden,
-        #                 },
-        #                 R: overrides,
-        #             }
-        #         }
-        #     }
-
-        #     break
-        # }
         # Simplifications
         while True:
             if isinstance(record, ProjectValue):
@@ -95,36 +128,40 @@ class Project(Term):
                         RecordLitValue(overrides))
             break
 
-        # if lit, ok := record.(RecordLit); ok {
-        #     result := make(RecordLit)
-        #     for _, k := range fieldNames {
-        #         result[k] = lit[k]
-        #     }
-        #     return result
-        # }
-        if isinstance(record, RecordLitValue):
-            return RecordLitValue({k: record[k] for k in self.field_names})
-
-        # if len(fieldNames) == 0 {
-        #     return RecordLit{}
-        # }
+        # empty projections result in empty records
         if not self.field_names:
             return RecordLitValue({})
 
-        # return project{
-        #     Record:     record,
-        #     FieldNames: fieldNames,
-        # }
-        return ProjectValue(record, self.fieldNames)
+        # apply the projection
+        if isinstance(record, RecordLitValue):
+            return RecordLitValue({k: record[k] for k in self.field_names})
+
+        # Not a record. Can't fully evaluate yet.
+        return ProjectValue(record, self.field_names)
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         return Project(self.record.subst(name, replacement, level), self.field_names)
 
+    def rebind(self, local, level: int = 0):
+        return Project(
+            self.record.rebind(local, level), self.field_names)
+
 
 class FieldValue(Value):
-    def __init__(self, record, label):
+    def __init__(self, record, field_name):
         self.record = record
-        self.label = label
+        self.field_name = field_name
+
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+        ctx = ctx if ctx is not None else QuoteContext()
+        return Field(self.record.quote(ctx, normalize), self.field_name)
+
+    def alpha_equivalent(self, other: Value, level: int = 0):
+        if not isinstance(other, self.__class__):
+            return False
+        if self.field_name != other.field_name:
+            return False
+        return self.record.alpha_equivalent(other.record, level)
 
 
 class Field(Term):
@@ -211,5 +248,8 @@ class Field(Term):
         return FieldValue(record, self.field_name)
 
     def subst(self, name: str, replacement: Term, level: int = 0):
-        return Project(self.record.subst(name, replacement, level), self.field_name)
+        return Field(self.record.subst(name, replacement, level), self.field_name)
+
+    def rebind(self, local, level: int = 0):
+        return Field(self.record.rebind(local, level), self.field_name)
 

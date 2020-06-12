@@ -3,8 +3,9 @@ from hashlib import sha256
 from functools import reduce
 
 import cbor
+import cbor2
 
-from pydhall.utils import hash_all
+from pydhall.utils import hash_all, cbor_dumps
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
@@ -85,7 +86,7 @@ class BuiltinValue(Value):
         return Builtin(self.name)
 
     def alpha_equivalent(self, other, level=0):
-        return other is self
+        return other.name is self.name
 
 
 class Node():
@@ -145,6 +146,31 @@ class Node():
             object.__setattr__(new, k, v)
         return new
 
+    def resolve(self, *ancestors):
+        if not self.attrs:
+            return self
+        attrs = {}
+        for name in self.attrs:
+            val = getattr(self, name)
+            if isinstance(val, Node):
+                attrs[name] = val.resolve(*ancestors)
+            elif isinstance(val, (int, float, str)) or val is None:
+                attrs[name] = val
+            elif isinstance(val, list):
+                res = []
+                for i in val:
+                    if isinstance(i, Node):
+                        res.append(i.resolve(*ancestors))
+                    elif isinstance(i, (int, float, str)) or val is None:
+                        res.append(i)
+                    else:
+                        assert False
+                attrs[name] = res
+            else:
+                assert False, f"resolve() should be implemented for {self.__class__} - {name} - {val.__class__}"
+
+        return self.copy(**attrs)
+
 
 class Term(Node):
     _type = None
@@ -177,7 +203,8 @@ class Term(Node):
         return [self._cbor_idx, self.eval().as_python()]
 
     def cbor(self):
-        return cbor.dumps(self.cbor_values())
+        return cbor_dumps(self.cbor_values())
+        # return cbor2.dumps(self.cbor_values(), canonical=True)
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
@@ -259,9 +286,8 @@ class DictTerm(dict, Term):
     def __hash__(self):
         return hash_all(self)
 
-
-class Fetchable(Node):
-    pass
+    def resolve(self, *ancestors):
+        return self.__class__({k: v.resolve(*ancestors) for k,v in self.items()})
 
 
 class BuiltinMeta(type):
@@ -306,6 +332,18 @@ class BuiltinMeta(type):
                 ctx = ctx if ctx is not None else QuoteContext()
                 from . import App
                 return App.build(self.fn_class(), *[a.quote(ctx, normalize) for a in self.args])
+
+            def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+                if self._call != other._call:
+                    return False
+                if self.fn_class != other.fn_class:
+                    return False
+                if len(self.args) != len(other.args):
+                    return False
+                for i, a in enumerate(self.args):
+                    if not a.alpha_equivalent(other.args[i], level):
+                        return False
+                return True
 
         call = attrs.pop("__call__")
 
@@ -379,6 +417,13 @@ class OpValue(Value):
         self.l = l
         self.r = r
 
+    def alpha_equivalent(self, other: Value, level: int = 0):
+        if not isinstance(other, self.__class__):
+            return False
+        return (
+            self.l.alpha_equivalent(other.l, level)
+            and self.r.alpha_equivalent(other.r, level))
+
 
 class Op(Term):
     attrs = ["l", "r"]
@@ -430,7 +475,7 @@ class _FreeVar(Value):
     def quote(self, ctx=None, normalize=False):
         return Var(self.name, self.index)
 
-    def alpha_equivalent(self, other: "Value", level: int = 0) -> bool:
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         return other.__class__ is _FreeVar and self.index == other.index and self.name == other.name
 
 
@@ -460,9 +505,12 @@ class Var(Term):
         raise DhallTypeError(
             TYPE_ERROR_MESSAGE.UNBOUND_VARIABLE % self.name)
 
-    def format_dhall(self):
+    def __str__(self):
         index = "" if not self.index else f"@{self.index}"
-        return (f"{self.name}{index}",)
+        return f"{self.name}{index}"
+
+    def format_dhall(self):
+        return (self.__str__(),)
 
 
 class LocalVar(Term):

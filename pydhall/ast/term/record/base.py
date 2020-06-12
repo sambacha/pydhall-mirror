@@ -19,12 +19,21 @@ class RecordLitValue(dict, Value):
             if k in result:
                 if isinstance(v, RecordLitValue):
                     result[k] = self[k].merge(v)
-                # TODO: dhall-golang mustMergeRecordLitVals doesn't do this. Why?
-                # else:
-                #     result[k] = v
             else:
                 result[k] = v
         return RecordLitValue(result)
+
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, RecordLitValue):
+            return False
+        if len(self) != len(other):
+            return False
+        for k, v in self.items():
+            vo = other.get(k)
+            if vo is None or not v.alpha_equivalent(vo, level):
+                return False
+        return True
+
 
 class RecordLit(DictTerm):
     def cbor_values(self):
@@ -67,28 +76,7 @@ class RecordTypeValue(dict, Value):
         return True
 
     def merge(self, other):
-        # var err error
-        # result := make(RecordType)
-        # for k, v := range l {
-        #     result[k] = v
-        # }
         result = {k: v for k, v in self.items()}
-
-        # for k, v := range r {
-        #     if lField, ok := result[k]; ok {
-       #         lSubrecord, Lok := lField.(RecordType)
-        #         rSubrecord, Rok := v.(RecordType)
-        #         if !(Lok && Rok) {
-        #             return nil, errors.New("Record mismatch")
-        #         }
-        #         result[k], err = mergeRecordTypes(lSubrecord, rSubrecord)
-        #         if err != nil {
-        #             return nil, err
-        #         }
-        #     } else {
-        #         result[k] = v
-        #     }
-        # }
         for k, v in other.items():
             try:
                 l_field = result[k]
@@ -101,9 +89,7 @@ class RecordTypeValue(dict, Value):
                 raise DhallTypeError("Record mismatch") # TODO: this is not a type error
             result[k] = l_field.merge(v)
 
-        # return result, nil
         return RecordTypeValue(result)
-    # }
 
 
 class RecordType(DictTerm):
@@ -121,7 +107,7 @@ class RecordType(DictTerm):
         return RecordType({k: v.subst(name, replacement, level) for k, v in self.items()})
 
     def rebind(self, local: Term, level: int = 0):
-        return RecordLit({k:v.rebind(local, level) for k, v in self.items()})
+        return RecordType({k:v.rebind(local, level) for k, v in self.items()})
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -134,4 +120,11 @@ class RecordType(DictTerm):
                 universe = field_universe
         return universe
 
+    def __str__(self):
+        if len(self) == 0:
+            return "{}"
+        res = "{ "
+        for k, v in self.items():
+            res += f"{k} : {v}, "
+        return res[:-2] + " }"
 

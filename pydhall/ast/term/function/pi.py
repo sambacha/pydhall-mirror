@@ -30,6 +30,8 @@ class PiValue(Value):
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         if not isinstance(other, PiValue):
             return False
+        if not self.domain.alpha_equivalent(other.domain, level):
+            return False
         my_codomain = self.codomain(_QuoteVar("_", level))
         other_codomain = other.codomain(_QuoteVar("_", level))
         return my_codomain.alpha_equivalent(other_codomain, level + 1)
@@ -51,16 +53,8 @@ class Pi(Term):
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
-        # inUniv, err := typeWith(ctx, t.Type)
-        # if err != nil {
-        #     return nil, err
-        # }
         type_type = self.type_.type(ctx)
 
-        # i, ok := inUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidInputType)
-        # }
         if not isinstance(type_type, UniverseValue):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_INPUT_TYPE)
 
@@ -74,17 +68,6 @@ class Pi(Term):
         if type_type < outUniv:
             return outUniv
         return type_type
-        # outUniv, err := typeWith(
-        #     ctx.extend(t.Label, Eval(t.Type)),
-        #     term.Subst(t.Label, freshLocal, t.Body))
-        # if err != nil {
-        #     return nil, err
-        # }
-        # o, ok := outUniv.(Universe)
-        # if !ok {
-        #     return nil, mkTypeError(invalidOutputType)
-        # }
-        # return functionCheck(i, o), nil
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
@@ -110,3 +93,7 @@ class Pi(Term):
             self.label,
             self.type_.rebind(local, level),
             self.body.rebind(local, body_level))
+
+    def __str__(self):
+        return f"∀ ( {self.label} : {self.type_} ) → {self.body}"
+

@@ -1,6 +1,6 @@
 from ..base import Op, TypeContext, Value, OpValue, EvalEnv
 
-from .base import ListOf, EmptyListValue, NonEmptyListValue
+from .base import ListOf, EmptyListValue, NonEmptyListValue, EvalEnv, QuoteContext, TypeContext
 
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 

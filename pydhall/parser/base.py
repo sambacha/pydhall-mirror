@@ -6,7 +6,6 @@ from io import StringIO
 from fastidious import Parser
 
 from pydhall.ast.node import BlockComment, LineComment
-from pydhall.ast.fetchable import ImportHashed, EnvVar, LocalFile
 from pydhall.ast.term import (
     Annot,
     App,
@@ -18,6 +17,7 @@ from pydhall.ast.term import (
     Chunk,
     DoubleLit,
     EmptyList,
+    EnvVar,
     Field,
     If,
     Import,
@@ -25,15 +25,20 @@ from pydhall.ast.term import (
     Kind,
     Lambda,
     Let,
+    LocalFile,
     Merge,
+    Missing,
     NaturalLit,
     NonEmptyList,
     Op,
     Pi,
     Project,
+    ProjectType,
     RecordLit,
     RecordType,
     RecordMergeOp,
+    RemoteFile,
+    RightBiasedRecordMergeOp,
     Some,
     Sort,
     Term,
@@ -187,8 +192,7 @@ class Dhall(Parser):
     As ← "as"
     Using ← "using"
     Merge ← "merge"
-    # Missing ← "missing" !SimpleLabelNextChar { return Missing{}, nil }
-    Missing ← "missing" !SimpleLabelNextChar
+    Missing ← "missing" !SimpleLabelNextChar { on_Missing }
     Infinity ← "Infinity"
     NaN ← "NaN"
     Some ← "Some"
@@ -347,13 +351,7 @@ class Dhall(Parser):
 
     SubDelims <- "!" / "$" / "&" / "'" / "*" / "+" / ";" / "="
 
-    Http ← u:HttpRaw usingClause:( _ Using _1 ImportExpression)?
-    # {
-    #   if usingClause != nil {
-    #     return NewRemoteFile(u.(*url.URL)), errors.New("dhall-golang does not support ❰using❱ clauses")
-    #   }
-    #   return NewRemoteFile(u.(*url.URL)), nil
-    # }
+    Http ← u:HttpRaw using_clause:( _ Using _1 ImportExpression)? { on_Http }
 
     Env ← "env:" v:(BashEnvironmentVariable / PosixEnvironmentVariable) { @v }
 
@@ -451,13 +449,14 @@ class Dhall(Parser):
     LambdaExpression <-
         Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _
         Arrow _ body:Expression { on_LambdaExpression }
+    IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
     Bindings <- bindings:LetBinding+ In _1 b:Expression { on_Bindings }
     ForallExpression <-
         Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')'
         _ Arrow _ body:Expression { on_ForallExpression }
     AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression { on_AnonPiExpression }
     MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
-    IfExpression <- If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression
+    AnnotatedToMap <- toMap _1 e:ImportExpression _ ':' _1 t:ApplicationExpression { on_toMapExpr }
     AssertExpression <- assert_ _ ':' _1 a:Expression { on_AssertExpression }
     Expression <-
         LambdaExpression
@@ -465,10 +464,10 @@ class Dhall(Parser):
         / Bindings
         / ForallExpression
         / AnonPiExpression
-        # / WithExpression
+        / WithExpression
         / MergeExpression
         / EmptyList
-        # / toMapExpression ???? check differenc with toMapExpr
+        / AnnotatedToMap
         / AssertExpression
         / AnnotatedExpression
 
@@ -479,30 +478,11 @@ class Dhall(Parser):
 
     EmptyList ← '[' _ (',' _)? ']' _ ':' _1 a:ApplicationExpression
 
-    WithExpression         ← first:ApplicationExpression rest:(_1 with_ _1 WithClause)* { @first }
-    #   {
-    #     out := first.(Term)
-    #     if rest == nil { return out, nil }
-    #     for _, b := range rest.([]interface{}) {
-    #         path := b.([]interface{})[3].([]string)
-    #         value := b.([]interface{})[7].(Term)
-    #         out = desugarWith(out, path, value)
-    #     }
-    #     return out, nil
-    #   }
+    WithExpression ← first:ImportExpression rest:(_1 with_ _1 WithClause)+ { on_WithExpression }
 
     WithClause ← FieldPath _ '=' _ OperatorExpression
 
-    FieldPath ← first:AnyLabelOrSome rest:(_ '.' _ AnyLabelOrSome)*
-    # {
-    #   out := []string{first.(string)}
-    #   if rest == nil { return out, nil }
-    #   for _, b := range rest.([]interface{}) {
-    #     nextField := b.([]interface{})[3].(string)
-    #     out = append(out, nextField)
-    #   }
-    #   return out, nil
-    # }
+    FieldPath ← first:AnyLabelOrSome rest:(_ '.' _ AnyLabelOrSome)* { on_FieldPath }
 
     OperatorExpression ← EquivalentExpression
 
@@ -640,7 +620,14 @@ class Dhall(Parser):
         return self.emit(LineComment, self.p_flatten(content))
 
     def on_BlockComment(self, value):
-        return self.emit(BlockComment, self.p_flatten(value))
+        value = self.p_flatten_list(value)
+        content = StringIO()
+        for i in value:
+            if isinstance(i, BlockComment):
+                content.write(i.content)
+            else:
+                content.write(i)
+        return self.emit(BlockComment, content.getvalue())
 
     def on_builtin(self, result):
         result = self.p_flatten(result)
@@ -666,8 +653,15 @@ class Dhall(Parser):
         # validate and normalize the address
         return str(IPv6Address(self.p_flatten(result)))
 
-    def on_UrlPath(self, result):
-        result = self.p_flatten(result)
+    def on_UrlPath(self, segments):
+        result = []
+        for s in self.p_flatten_list(segments):
+            if s == "/":
+                result.append("")
+            else:
+                result.append(s)
+
+        result = "/".join(result)
         if not result.startswith("/"):
             return "/" + result
         return result
@@ -791,9 +785,9 @@ class Dhall(Parser):
     def on_DoubleLiteral(self, _, num=None, inf=None, minf=None, nan=None):
         if num is not self.NoMatch:
             return num
-        if inf is not self.NoMatch:
+        if inf is not self.NoMatch and inf is not None:
             return self.emit(DoubleLit, float("inf"))
-        if minf is not self.NoMatch:
+        if minf is not self.NoMatch and minf is not None:
             return self.emit(DoubleLit, float("-inf"))
         if nan is not self.NoMatch:
             return self.emit(DoubleLit, float("nan"))
@@ -807,7 +801,7 @@ class Dhall(Parser):
         assert False
 
     def on_BashEnvironmentVariable(self, v):
-        return self.emit(EnvVar, self.p_flatten(v))
+        return [EnvVar, self.p_flatten(v)]
 
     def on_LetBinding(self, _, label, a, v):
         if not a:
@@ -819,7 +813,6 @@ class Dhall(Parser):
         return self.emit(Binding, label, a, v)
 
     def on_Bindings(self, _, bindings, b):
-        # import ipdb; ipdb.set_trace()
         return self.emit(Let, bindings, b)
 
     op_classes = {}
@@ -846,39 +839,45 @@ class Dhall(Parser):
         return self.emit(Some, e)
 
     def on_toMapExpr(self, _, e, t=None):
-        # import ipdb; ipdb.set_trace()
         return self.emit(ToMap, e, t)
 
     def on_EmptyList(self, _, a):
         return self.emit(EmptyList, a)
 
     def on_ParentPath(self, _, p):
-        return self.emit(LocalFile, str(Path("..").joinpath(p)))
+        return [LocalFile, Path("..").joinpath(p)]
 
     def on_HerePath(self, _, p):
-        return self.emit(LocalFile, str(Path(".").joinpath(p)))
+        return [LocalFile, Path(".").joinpath(p)]
 
     def on_HomePath(self, _, p):
-        return self.emit(LocalFile, str(Path("~").joinpath(p)))
+        return [LocalFile, Path("~").joinpath(p)]
 
     def on_AbsolutePath(self, _, p):
-        return self.emit(LocalFile, str(Path("/").joinpath(p)))
+        return [LocalFile, Path("/").joinpath(p)]
 
     def on_ImportHashed(self, _, i, h=None):
+        # import ipdb; ipdb.set_trace()
         if not h:
-            h = None
+            i.append(None)
         else:
-            h = h[1]
-        return self.emit(ImportHashed, i, h)
+            i.append(bytearray.fromhex("1220" + self.p_flatten(h[1][1])))
+        return i
 
     def on_ImportAsText(self, _, i):
-        return self.emit(Import, i, Import.Mode.RawText)
+        i.append(Import.Mode.RawText)
+        return i
 
     def on_ImportAsLocation(self, _, i):
-        return self.emit(Import, i, Import.Mode.Location)
+        i.append(Import.Mode.Location)
+        return i
 
     def on_SimpleImport(self, _, i):
-        return self.emit(Import, i, Import.Mode.Code)
+        i.append(Import.Mode.Code)
+        return i
+
+    def on_Import(self, i):
+        return self.emit(i.pop(0), *i)
 
     def on_LambdaExpression(self, _, label, t, body):
         return self.emit(Lambda, label, t, body)
@@ -964,28 +963,11 @@ class Dhall(Parser):
             if isinstance(selector, list):
                 e = Project(e, selector)
                 continue
-            # TODO!
+            if isinstance(selector, Term):
+                e = ProjectType(e, selector)
+                continue
             assert False
         return e
-
-    # {
-    #     expr := e.(Term)
-    #     labels := ls.([]interface{})
-    #     for _, labelSelector := range labels {
-    #         selectorIface := labelSelector.([]interface{})[3]
-    #         switch selector := selectorIface.(type) {
-    #             case string:
-    #                 expr = Field{expr, selector}
-    #             case []string:
-    #                 expr = Project{expr, selector}
-    #             case Term:
-    #                 expr = ProjectType{expr, selector}
-    #             default:
-    #                 return nil, errors.New("unimplemented")
-    #         }
-    #     }
-    #     return expr, nil
-    # }
 
     def on_Labels(self, _, optclauses):
         "Labels ← '{' _ optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* )? '}'"
@@ -995,3 +977,35 @@ class Dhall(Parser):
 
     def on_AssertExpression(self, _, a):
         return self.emit(Assert, a)
+
+    def desugar_with(self, record, path, value):
+        if len(path) == 1:
+            return RightBiasedRecordMergeOp(record, RecordLit({path[0]: value}))
+        return RightBiasedRecordMergeOp(
+            record,
+            RecordLit({
+                path[0]: self.desugar_with(
+                    Field(record, path[0]),
+                    path[1:],
+                    value)
+            })
+        )
+
+    def on_WithExpression(self, _, first, rest=None):
+        if not rest:
+            return first
+        out = first
+        for r in rest:
+            out = self.desugar_with(out, r[3][0], r[3][4])
+        return out
+
+    def on_FieldPath(self, _, first, rest):
+        return [i for i in self.p_flatten_list([first, rest]) if i != "."]
+
+    def on_Http(self, _, u, using_clause=None):
+        if using_clause:
+            self.p_parse_error("pydhall doesn't support using clause")
+        return [RemoteFile, u]
+
+    def on_Missing(self, _):
+        return [Missing]

@@ -71,3 +71,14 @@ first element had type %s but there was an element of type %s"""
     ASSERTION_FAILED = """Assertion failed
 
 %s is not equivalent to %s"""
+
+    PROJECTION_TYPE_MISMATCH = """Projection type mismatch
+
+tried to project a %s but the field had type %s"""
+
+    INVALID_TO_MAP_TYPE = """An empty ❰toMap❱ was annotated with an invalid type
+
+"%s"""
+    MAP_TYPE_MISMATCH = """❰toMap❱ result type doesn't match annotation
+
+map had type %s but was annotated %s"""

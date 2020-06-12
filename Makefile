@@ -51,10 +51,10 @@ lint: ## check style with flake8
 	flake8 pydhall tests
 
 test: ## run tests quickly with the default Python
-	pytest -n 8
+	pytest -n 8 --ignore=pydhall/tests/spec/test_prelude.py
 
 test-inspect:
-	pytest -s -x --pdb --pdbcls=IPython.terminal.debugger:TerminalPdb
+	pytest -s -x --pdb --pdbcls=IPython.terminal.debugger:TerminalPdb --ignore=pydhall/tests/spec/test_prelude.py
 
 test-all: ## run tests on every Python version with tox
 	tox

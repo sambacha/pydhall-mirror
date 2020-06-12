@@ -3,85 +3,29 @@ from functools import reduce
 
 
 from .base import Node, Term, _AtomicLit, Builtin, TypeContext, EvalEnv, Op, Var
-from .. import value
 from ..type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 from .double.base import DoubleLit
 from .integer import IntegerLit
 from .optional import Some
-from .text.base import Chunk, TextLit, TextTypeValue
+from .text.base import Chunk, TextLit, TextTypeValue, PlainTextLitValue
 from .text.ops import *
-from .record.base import RecordLit, RecordType, RecordTypeValue
-from .record.ops import CompleteOp, RecordMergeOp
+from .record.base import RecordLit, RecordType, RecordTypeValue, RecordLitValue
+from .record.ops import CompleteOp, RecordMergeOp, RightBiasedRecordMergeOp
 from .natural.base import NaturalLit
 from .natural.ops import PlusOp, TimesOp
-from .field import Field, Project
+from .field import Field, Project, ProjectType
 from .universe import UniverseValue, TypeValue, KindValue, SortValue, Universe, Sort, Kind, Type
 from .union import UnionType, Merge
-from .list_.base import List, EmptyList, NonEmptyList, ListOf
+from .list_.base import List, EmptyList, NonEmptyList, ListOf, EmptyListValue, NonEmptyListValue
 from .list_.ops import ListAppendOp
 from .boolean.base import Bool, BoolLit, True_, False_, BoolTypeValue
 from .boolean.ops import *
 from .if_ import If
 from .function import Lambda, Pi
 from .function.pi import PiValue
-
-
-class App(Term):
-    attrs = ["fn", "arg"]
-
-    @classmethod
-    def build(cls, *args):
-        assert args
-        if len(args) == 1:
-            return args[0]
-        return App.build(App(args[0], args[1]), *args[2:])
-
-    def type(self, ctx=None):
-        ctx = ctx if ctx is not None else TypeContext()
-
-        fn_type = self.fn.type(ctx)
-        arg_type = self.arg.type(ctx)
-        if not isinstance(fn_type, PiValue):
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.NOT_A_FUNCTION)
-        expected_type = fn_type.domain
-        if not expected_type @ arg_type:
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.TYPE_MISMATCH % (
-                expected_type.quote(), arg_type.quote()))
-        return fn_type.codomain(self.arg.eval())
-
-    def subst(self, name: str, replacement: Term, level: int = 0):
-        return App(
-            self.fn.subst(name, replacement, level),
-            self.arg.subst(name, replacement, level))
-
-    def eval(self, env=None):
-        env = env if env is not None else EvalEnv()
-        return value._App.build(self.fn.eval(env), self.arg.eval(env))
-
-    def cbor_values(self):
-        # print(repr(self.fn))
-        # print(repr(self.arg))
-        fn = self.fn
-        args = [self.arg.cbor_values()]
-        while True:
-            if not isinstance(fn, App):
-                break
-            args = [fn.arg.cbor_values()] + args
-            fn = fn.fn
-        return [0, fn.cbor_values()] + args
-
-    def subst(self, name, replacement, level=0):
-        return App(
-            self.fn.subst(name, replacement, level),
-            self.arg.subst(name, replacement, level))
-
-    def rebind(self, local, level=0):
-        return App(
-            self.fn.rebind(local, level),
-            self.arg.rebind(local, level))
-
-    def format_dhall(self):
-        return (self.fn.format_dhall(), self.arg.format_dhall())
+from .function.app import App
+from .import_.base import Import, EnvVar, LocalFile, RemoteFile, Missing
+from .import_.ops import ImportAltOp
 
 
 class Annot(Term):
@@ -145,15 +89,6 @@ class Assert(Term):
         return Assert(self.annotation.subst(name, replacement, level))
 
 
-class Import(Term):
-    attrs = ["import_hashed", "import_mode"]
-
-    class Mode:
-        Code = 0
-        RawText = 1
-        Location = 2
-
-
 class Binding(Node):
     attrs = ["variable", "annotation", "value"]
 
@@ -182,7 +117,7 @@ class Let(Term):
                 if not binding_type @ binding.annotation.eval():
                     raise DhallTypeError(
                         TYPE_ERROR_MESSAGE.ANNOT_MISMATCH % (
-                            binding.annotation, binding_type.quote()))
+                            binding_type.quote(), binding.annotation))
             value = binding.value.eval().quote()
             let = let.subst(binding.variable, value)
             ctx = ctx.extend(binding.variable, binding_type)
@@ -221,6 +156,32 @@ class Let(Term):
         else:
             return [25] + bindings + [self.body.cbor_values()]
 
+    # def resolve(self, *ancestors):
+    #     bindings = []
+    #     for b in self.bindings:
+    #         variable = b.variable
+    #         if b.annotation is not None:
+    #             annotation = b.annotation.resolve(*ancestors)
+    #         else:
+    #             annotation = None
+    #         value = b.value.resolve(*ancestors)
+    #         bindings.append(Binding(variable, annotation, value))
+    #     return Let(bindings, self.body.resolve(*ancestors))
+
+
+class ToMapValue(Value):
+    def __init__(self, record, type_=None):
+        self.record = record
+        self.type_ = type_
+
+    def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
+        ctx = ctx if ctx is not None else QuoteContext()
+        if self.type_ is not None:
+            type_ = self.type.quote(ctx, normalize)
+        else:
+            type_ = None
+        return ToMap(self.record.quote(ctx, normalize), type_)
+    
 
 class ToMap(Term):
     attrs = ["record", "type_"]
@@ -231,40 +192,31 @@ class ToMap(Term):
             result += [self.type_.cbor_values()]
         return result
 
+    def eval(self, env=None):
+        env = env if env is not None else EvalEnv()
+
+        record = self.record.eval(env)
+
+        if isinstance(record, RecordLitValue):
+            if len(record) == 0:
+                return EmptyListValue(self.type_.eval(env))
+            field_names = list(sorted(record.keys()))
+            result = [
+                RecordLitValue({
+                    "mapKey": PlainTextLitValue(name),
+                    "mapValue": record[name]})
+                for name in field_names]
+            return NonEmptyListValue(result)
+
+        return ToMapValue(record, self.type_.eval(env))
+
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
-        # recordTypeVal, err := typeWith(ctx, t.Record)
-        # if err != nil {
-        #     return nil, err
-        # }
-        # recordType, ok := recordTypeVal.(RecordType)
-        # if !ok {
-        #     return nil, mkTypeError(cantAccess)
-        # }
         record_type = self.record.type(ctx)
         if not isinstance(record_type, RecordTypeValue):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS)
 
-        # if len(recordType) == 0 {
-        #     if t.Type == nil {
-        #         return nil, mkTypeError(missingToMapType)
-        #     }
-        #     err = assertTypeIs(ctx, t.Type, Type, invalidToMapRecordKind)
-        #     if err != nil {
-        #         return nil, err
-        #     }
-        #     tVal := Eval(t.Type)
-        #     t, ok := listElementType(tVal)
-        #     if !ok {
-        #         return nil, mkTypeError(invalidToMapType(Quote(tVal)))
-        #     }
-        #     rt, ok := t.(RecordType)
-        #     if !ok || len(rt) != 2 || rt["mapKey"] != Text || rt["mapValue"] == nil {
-        #         return nil, mkTypeError(invalidToMapType(Quote(tVal)))
-        #     }
-        #     return tVal, nil
-        # }
         if len(record_type) == 0:
             if self.type_ is None:
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_TO_MAP_TYPE)
@@ -275,24 +227,14 @@ class ToMap(Term):
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_TO_MAP_TYPE % type_type.quote())
             list_type = type_type.type_
             if not (isinstance(list_type, RecordTypeValue)
-                    or len(list_type) == 2
-                    or list_type.get("mapKey", None) == TextTypeValue
-                    or "mapValue" not in list_type):
+                    and len(list_type) == 2
+                    and list_type.get("mapKey", None) == TextTypeValue
+                    and "mapValue" in list_type):
                 # TODO: error message
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_TO_MAP_TYPE % type_type.quote())
             return type_type
 
-        # var elemType Value
         elem_type = None
-        # for _, v := range recordType {
-        #     if elemType == nil {
-        #         elemType = v
-        #     } else {
-        #         if !AlphaEquivalent(elemType, v) {
-        #             return nil, mkTypeError(heterogenousRecordToMap)
-        #         }
-        #     }
-        # }
         for v in record_type.values():
             if elem_type is None:
                 elem_type = v
@@ -300,41 +242,34 @@ class ToMap(Term):
                 if not elem_type @ v:
                     raise DhallTypeError(TYPE_ERROR_MESSAGE.HETEROGENOUS_RECORD_TO_MAP)
 
-        # if k, _ := typeWith(ctx, Quote(elemType)); k != Type {
-        #     return nil, mkTypeError(invalidToMapRecordKind)
-        # }
         if elem_type.quote().type(ctx) != TypeValue:
             raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_TO_MAP_RECORD_KIND)
 
-        # inferred := ListOf{RecordType{"mapKey": Text, "mapValue": elemType}}
         inferred = ListOf(RecordTypeValue({"mapKey": TextTypeValue, "mapValue": elem_type}))
 
-        # if t.Type == nil {
-        #     return inferred, nil
-        # }
-        if self._type is None:
+        if self.type_ is None:
             return inferred
 
-        # if _, err = typeWith(ctx, t.Type); err != nil {
-        #     return nil, err
-        # }
         _ = self.type_.type(ctx)
 
-        # annot := Eval(t.Type)
-        # if !AlphaEquivalent(inferred, annot) {
-        #     return nil, mkTypeError(mapTypeMismatch(Quote(inferred), t.Type))
-        # }
         if not inferred @ self.type_.eval():
             raise DhallTypeError(TYPE_ERROR_MESSAGE.MAP_TYPE_MISMATCH % ( inferred.quote(), self.type_))
 
-        # return inferred, nil
         return inferred
 
+    def subst(self, name: str, replacement: Term, level: int =0):
+        if self.type_ is not None:
+            type = self.type_.subst(name, replacement, level)
+        else:
+            type = None
+        return ToMap(self.record.subst(name, replacement, level), type)
 
-class ImportAltOp(Op):
-    precedence = 10
-    operators = ("?",)
-    _op_idx = 11
+    def rebind(self, local: Term, level: int =0):
+        if self.type_ is not None:
+            type = self.type_.rebind(local, level)
+        else:
+            type = None
+        return ToMap(self.record.rebind(local, level), type)
 
 
 class EquivOpVal(OpValue):
@@ -357,7 +292,7 @@ class EquivOp(Op):
         r_type = self.r.type(ctx)
         r_type.quote().assertType(TypeValue, ctx, TYPE_ERROR_MESSAGE.INCOMPARABLE_EXPRESSION)
         if not l_type @ r_type:
-            raise DhallTypeError(TYPE_ERROR_MESSAGE, EQUIVALENCE_TYPE_MISMATCH)
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.EQUIVALENCE_TYPE_MISMATCH)
         return TypeValue
 
     def eval(self, env=None):

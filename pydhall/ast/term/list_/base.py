@@ -39,6 +39,16 @@ class NonEmptyListValue(Value):
         ctx = ctx if ctx is not None else QuoteContext()
         return NonEmptyList([e.quote(ctx, normalize) for e in self.content])
 
+    def alpha_equivalent(self, other: Value, level: int = 0):
+        if not isinstance(other, self.__class__):
+            return False
+        if len(self.content) != len(other.content):
+            return False
+        for i, item in enumerate(self.content):
+            if not item.alpha_equivalent(other.content[i], level):
+                return False
+        return True
+
 
 class EmptyListValue(Value):
     def __init__(self, type_):
@@ -47,6 +57,11 @@ class EmptyListValue(Value):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
         return EmptyList(self.type_.quote(ctx, normalize))
+
+    def alpha_equivalent(self, other: Value, level: int = 0):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.type_.alpha_equivalent(other.type_, level)
 
 
 # Terms

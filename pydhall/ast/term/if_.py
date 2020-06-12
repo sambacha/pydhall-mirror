@@ -17,6 +17,14 @@ class IfValue(Value):
             self.true.quote(ctx, normalize),
             self.false.quote(ctx, normalize))
 
+    def alpha_equivalent(self, other: Value, level: int = 0):
+        if not isinstance(other, self.__class__):
+            return False
+        return (
+            self.cond.alpha_equivalent(other.cond, level)
+            and self.true.alpha_equivalent(other.true, level)
+            and self.false.alpha_equivalent(other.false, level))
+
 
 class If(Term):
     attrs = ["cond", "true", "false"]

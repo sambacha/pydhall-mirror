@@ -8,7 +8,7 @@ from ..record.base import RecordTypeValue, RecordLitValue
 from ..optional import NoneOf, SomeValue
 from ..function.lambda_ import LambdaValue
 from ..function.pi import PiValue, FnType
-from ...value import _App as AppValue
+from ..function.app import AppValue
 
 
 class ListBuild(Builtin):
@@ -18,7 +18,7 @@ class ListBuild(Builtin):
     def __call__(self, typ, x):
         def fn(a):
             def inner(as_):
-                if isinstance(a, EmptyListValue):
+                if isinstance(as_, EmptyListValue):
                     return NonEmptyListValue([a])
                 if isinstance(as_, NonEmptyListValue):
                     return NonEmptyListValue([a] + list(as_.content))
@@ -41,7 +41,7 @@ class ListFold(Builtin):
             return empty
         if isinstance(list_, NonEmptyListValue):
             result = empty
-            for i in reverse(list_.content):
+            for i in reversed(list_.content):
                 result = AppValue.build(cons, i, result)
             return result
 
@@ -53,7 +53,8 @@ class ListLength(Builtin):
     def __call__(self, type, x):
         if isinstance(x, EmptyListValue):
             return NaturalLitValue(0)
-        return NaturalLitValue(len(x.content))
+        if isinstance(x, NonEmptyListValue):
+            return NaturalLitValue(len(x.content))
 
 
 class ListHead(Builtin):
@@ -63,7 +64,8 @@ class ListHead(Builtin):
     def __call__(self, type , x):
         if isinstance(x, EmptyListValue):
             return NoneOf(type)
-        return SomeValue(x.content[0])
+        if isinstance(x, NonEmptyListValue):
+            return SomeValue(x.content[0])
 
 
 class ListLast(Builtin):
@@ -73,7 +75,8 @@ class ListLast(Builtin):
     def __call__(self, type , x):
         if isinstance(x, EmptyListValue):
             return NoneOf(type)
-        return SomeValue(x.content[-1])
+        if isinstance(x, NonEmptyListValue):
+            return SomeValue(x.content[-1])
 
 
 class ListIndexed(Builtin):
@@ -106,5 +109,5 @@ class ListReverse(Builtin):
         if isinstance(x, EmptyListValue):
             return x
         if isinstance(x, NonEmptyListValue):
-            return NonEmptyListValue(reversed(x.content))
+            return NonEmptyListValue(list(reversed(x.content)))
         return None

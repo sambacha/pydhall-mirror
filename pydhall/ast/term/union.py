@@ -3,7 +3,7 @@ from copy import deepcopy
 import cbor
 
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
-from pydhall.utils import dict_to_cbor
+from pydhall.utils import cbor_dict
 
 from .base import Term, Value, TypeContext, EvalEnv, QuoteContext, Callable
 from .universe import TypeValue, UniverseValue, SortValue, KindValue
@@ -11,6 +11,7 @@ from .record.base import RecordTypeValue, RecordLitValue
 from .optional import OptionalOf, SomeValue, NoneOf
 from .natural.base import NaturalLitValue
 from .function.pi import PiValue
+from .function.app import App, AppValue
 
 
 class UnionTypeValue(dict, Value):
@@ -73,7 +74,7 @@ class UnionType(dict, Term):
         return universe
 
     def cbor_values(self):
-        return cbor.dumps([11, dict_to_cbor(self)])
+        return [11, cbor_dict(self)]
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         result = {}
@@ -114,6 +115,38 @@ class UnionVal(Value):
         self.alternative = alternative
         self.val = val
 
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, UnionVal):
+            return False
+        if self.alternative != other.alternative:
+            return False
+        if self.val is not None:
+            if other.val is None:
+                return False
+            if not self.val.alpha_equivalent(other.val, level):
+                return False
+        return self.type_.alpha_equivalent(other.type_, level)
+
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        # var result term.Term = term.Field{
+        #     Record:    quoteWith(ctx, shouldAlphaNormalize, v.Type),
+        #     FieldName: v.Alternative,
+        # }
+        from .field import Field
+        result = Field(self.type_.quote(ctx, normalize), self.alternative)
+
+        # if v.Val != nil {
+        #     result = term.App{
+        #         Fn:  result,
+        #         Arg: quoteWith(ctx, shouldAlphaNormalize, v.Val),
+        #     }
+        # }
+        if self.val is not None:
+            return App(result, self.val.quote(ctx, normalize))
+
+        # return result
+        return result
 
 class MergeValue(Value):
     def __init__(self, handler, union, annotation=None):
@@ -124,12 +157,26 @@ class MergeValue(Value):
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
         h = self.handler.quote(ctx, normalize)
-        u = self.union.subst(ctx, normalize)
+        u = self.union.quote(ctx, normalize)
         if self.annotation:
             a = self.annotation.quote(ctx, normalize)
         else:
             a = None
         return Merge(h, u, a)
+
+    def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
+        if not isinstance(other, UnionVal):
+            return False
+        if self.annotation:
+            if not other.annotation:
+                return False
+            if not self.annotation.alpha_equivalent(other.annotation, level):
+                return False
+        if not self.union.alpha_equivalent(other.union, level):
+            return False
+        if not self.handler.alpha_equivalent(other.handler, level):
+            return False
+        return True
 
 
 class Merge(Term):
@@ -164,13 +211,12 @@ class Merge(Term):
         handlers = self.handler.eval(env)
         union = self.union.eval(env)
         if isinstance(handlers, RecordLitValue):
-            from pydhall.ast.value import _App as AppValue
             if isinstance(union, UnionVal):
                 if union.val is None:
                     return handlers[union.alternative]
                 return AppValue.build(handlers[union.alternative], union.val)
             if isinstance(union, SomeValue):
-                return AppValue.build(handlers["Some"], union.val)
+                return AppValue.build(handlers["Some"], union.value)
             if isinstance(union, NoneOf):
                 return handlers["None"]
         if self.annotation is not None:
@@ -320,7 +366,7 @@ class Merge(Term):
         # return result, nil
         if self.annotation is not None:
             _ = self.annotation.type(ctx)
-            if not result @ self.annotation:
+            if not result @ self.annotation.eval():
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.ANNOT_MISMATCH % ( self.annotation, result.quote()))
         return result
 

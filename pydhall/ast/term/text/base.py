@@ -1,7 +1,9 @@
 from io import StringIO
 
-from ..base import Value, Node, Term, Builtin, BuiltinValue, EvalEnv
+from ..base import Value, Node, Term, Builtin, BuiltinValue, EvalEnv, TypeContext
 from ..universe import TypeValue
+
+from pydhall.ast.type_error import TYPE_ERROR_MESSAGE
 
 
 TextTypeValue = BuiltinValue("Text")
@@ -31,6 +33,9 @@ class PlainTextLitValue(str, Value):
     def quote(self, ctx=None, normalize=False):
         return PlainTextLit(self)
 
+    def alpha_equivalent(self, other, level=0):
+        return self.__class__ == other.__class__ and self == other
+
 
 class TextLitValue(Value):
     def __init__(self, chunks, suffix):
@@ -41,47 +46,42 @@ class TextLitValue(Value):
         ctx = ctx if ctx is not None else QuoteContext()
         return TextLit([c.quote(ctx, normalize) for c in self.chunks], self.suffix)
 
+    def alpha_equivalent(self, other, level=0):
+        if not isinstance(other, TextLitValue):
+            return False
+        if self.suffix != other.suffix:
+            return False
+        if len(self.chunks) != len(other.chunks):
+            return False
+        for i, c in enumerate(self.chunks):
+            oc = other.chunks[i]
+            if c.prefix != oc.prefix:
+                return False
+            if not c.expr.alpha_equivalent(oc.expr, level):
+                return False
+        return True
+
 
 class TextLit(Term):
     attrs = ["chunks", "suffix"]
-    _type = TextTypeValue
+
+    def type(self, ctx=None):
+        ctx = ctx if ctx is not None else TypeContext()
+        for c in self.chunks:
+            c.expr.assertType(TextTypeValue, ctx, TYPE_ERROR_MESSAGE.CANT_INTERPOLATE)
+        return TextTypeValue
 
     def cbor_values(self):
         out = [18]
         for c in self.chunks:
             out.extend([c.prefix, c.expr.cbor_values()])
         out.append(self.suffix)
-        print(out)
         return out
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
-        #TODO: implement this correctly
-        # return PlainTextLitValue(self.suffix)
-        # var str strings.Builder
-        # var newChunks chunks
         str_ = StringIO()
         new_chunks = []
-
-        # for _, chk := range t.Chunks {
-        #     str.WriteString(chk.Prefix)
-        #     normExpr := evalWith(chk.Expr, e)
-        #     if text, ok := normExpr.(PlainTextLit); ok {
-        #         str.WriteString(string(text))
-        #     } else if text, ok := normExpr.(interpolatedText); ok {
-        #         // first chunk gets the rest of str
-        #         str.WriteString(text.Chunks[0].Prefix)
-        #         newChunks = append(newChunks,
-        #             chunk{Prefix: str.String(), Expr: text.Chunks[0].Expr})
-        #         newChunks = append(newChunks,
-        #             text.Chunks[1:]...)
-        #         str.Reset()
-        #         str.WriteString(text.Suffix)
-        #     } else {
-        #         newChunks = append(newChunks, chunk{Prefix: str.String(), Expr: normExpr})
-        #         str.Reset()
-        #     }
-        # }
         for chk in self.chunks:
             str_.write(chk.prefix)
             norm_expr = chk.expr.eval(env)
@@ -99,27 +99,18 @@ class TextLit(Term):
                 str_.seek(0)
                 str_.truncate()
 
-        # str.WriteString(t.Suffix)
         str_.write(self.suffix)
 
-        # newSuffix := str.String()
         new_suffix = str_.getvalue()
 
         # Special case: "${<expr>}" → <expr>
-        # if len(newChunks) == 1 && newChunks[0].Prefix == "" && newSuffix == "" {
-        #     return newChunks[0].Expr
-        # }
         if len(new_chunks) == 1 and new_chunks[0].prefix == "" and new_suffix == "":
             return new_chunks[0].expr
 
         # Special case: no chunks -> PlainTextLit
-        # if len(newChunks) == 0 {
-        #     return PlainTextLit(newSuffix)
-        # }
         if len(new_chunks) == 0:
             return PlainTextLitValue(new_suffix)
 
-        # return interpolatedText{Chunks: newChunks, Suffix: newSuffix}
         return TextLitValue(new_chunks, new_suffix)
 
     def subst(self, name: str, replacement: Term, level: int = 0):
@@ -135,7 +126,6 @@ class TextLit(Term):
         return TextLit(
             [c.rebind(local, level) for c in self.chunks],
             self.suffix)
-
 
 
 def PlainTextLit(txt):

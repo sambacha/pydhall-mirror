@@ -1,6 +1,6 @@
 import math
 import struct
-from cbor.cbor import CBOR_FLOAT16, CBOR_FLOAT32, CBOR_FLOAT64
+from cbor2 import dumps
 
 from ..base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
 from ..text.base import PlainTextLitValue, TextTypeValue
@@ -12,25 +12,6 @@ from ..universe import TypeValue
 DoubleTypeValue = BuiltinValue("Double")
 
 
-def _float_to_cbor(f):
-    try:
-        if struct.unpack("e", struct.pack("e", f))[0] == f:
-            return struct.pack("!Be", CBOR_FLOAT16, f)
-    except OverflowError:
-        pass
-    try:
-        if struct.unpack("f", struct.pack("f", f))[0] == f:
-            return struct.pack("!Bf", CBOR_FLOAT32, f)
-    except OverflowError:
-        pass
-    try:
-        if struct.unpack("d", struct.pack("d", f))[0] == f:
-            return struct.pack("!Bd", CBOR_FLOAT64, f)
-    except OverflowError:
-        pass
-    assert False
-
-
 class Double(Builtin):
     _type = TypeValue
     _eval = DoubleTypeValue
@@ -38,6 +19,14 @@ class Double(Builtin):
 
 ## Literal
 class DoubleLitValue(float, Value):
+
+    def __new__(cls, n):
+        try:
+            return float.__new__(cls, n)
+        except OverflowError:
+            if n > 0:
+                return float.__new__(cls, math.inf)
+            return float.__new__(cls, - math.inf)
 
     def __add__(self, other):
         raise TypeError()
@@ -63,6 +52,12 @@ class DoubleLitValue(float, Value):
             return "NaN"
         return str(float(self))
 
+    def alpha_equivalent(self, other, level: int = 0):
+        if not isinstance(other, DoubleLitValue):
+            return False
+        if math.isnan(self) and math.isnan(other):
+            return True
+        return self == other
 
 class DoubleLit(_AtomicLit):
     _type = DoubleTypeValue
@@ -81,10 +76,11 @@ class DoubleLit(_AtomicLit):
         return str(self.value)
 
     def cbor(self):
-        return _float_to_cbor(self.value)
+        return dumps(self.value, canonical=True)
 
     def cbor_values(self):
-        return _float_to_cbor(self.value)
+        return dumps(self.value, canonical=True)
+
 
 
 

@@ -5,7 +5,9 @@ from ..base import Op, OpValue, TypeContext, EvalEnv
 from .base import RecordLitValue, RecordTypeValue
 
 class RightBiasedRecordMergeOpValue(OpValue):
-    pass
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return RightBiasedRecordMergeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
 
 
 class RightBiasedRecordMergeOp(Op):
@@ -23,7 +25,7 @@ class RightBiasedRecordMergeOp(Op):
             if len(r) == 0:
                 return l
             if isinstance(l, RecordLitValue):
-                result = RecordLitValue(l)
+                result = RecordLitValue({k: v for k,v in l.items()})
                 result.update(r)
                 return result
         if l @ r:
@@ -38,8 +40,10 @@ class RightBiasedRecordMergeOp(Op):
         r_type = self.r.type(ctx)
         if not isinstance(r_type, RecordTypeValue):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.MUST_COMBINE_A_RECORD)
-        l_type.update(r_type)
-        return l_type
+        result = {}
+        result.update(l_type)
+        result.update(r_type)
+        return RecordTypeValue(result)
 
 
 class CompleteOp(Op):
@@ -71,7 +75,9 @@ class CompleteOp(Op):
 
 
 class RecordMergeOpValue(OpValue):
-    pass
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return RecordMergeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
 
 class RecordMergeOp(Op):
     precedence = 70
@@ -90,8 +96,6 @@ class RecordMergeOp(Op):
         env = env if env is not None else EvalEnv()
         l = self.l.eval(env)
         r = self.r.eval(env)
-        # lR, lOk := l.(RecordLit)
-        # rR, rOk := r.(RecordLit)
         if isinstance(l, RecordLitValue) and len(l) == 0:
             return r
         if isinstance(r, RecordLitValue):
@@ -103,7 +107,9 @@ class RecordMergeOp(Op):
 
 
 class RecordTypeMergeOpValue(OpValue):
-    pass
+    def quote(self, ctx=None, normalize=False):
+        ctx = ctx if ctx is not None else QuoteContext()
+        return RecordTypeMergeOp(self.l.quote(ctx, normalize), self.r.quote(ctx, normalize))
 
 
 class RecordTypeMergeOp(Op):
@@ -113,7 +119,6 @@ class RecordTypeMergeOp(Op):
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
-
         l_kind = self.l.type(ctx)
         r_kind = self.r.type(ctx)
         l_val = self.l.eval()

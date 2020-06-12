@@ -31,7 +31,7 @@ class IntegerToDouble(Builtin):
 
     def __call__(self, x: Value) -> Value:
         if isinstance(x, IntegerLitValue):
-            return DoubleLitValue(float(x))
+            return DoubleLitValue(x)
 
 
 class IntegerShow(Builtin):
@@ -40,6 +40,6 @@ class IntegerShow(Builtin):
 
     def __call__(self, x):
         if isinstance(x, IntegerLitValue):
-            prefix = x > 0 and "+" or ""
+            prefix = x >= 0 and "+" or ""
             return PlainTextLitValue(prefix + str(x))
         return None
