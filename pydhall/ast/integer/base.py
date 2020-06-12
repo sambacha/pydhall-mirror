@@ -11,6 +11,9 @@ class Integer(Builtin):
     _type = TypeValue
     _eval = IntegerTypeValue
 
+    def __hash__(self):
+        return hash(self.__class__)
+
 
 ## Literal
 class IntegerLitValue(int, Value):

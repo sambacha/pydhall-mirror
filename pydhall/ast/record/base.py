@@ -52,8 +52,8 @@ class RecordLit(DictTerm):
         rt.quote().type(ctx)
         return rt
 
-    def __deepcopy__(self, memo):
-        return self.__class__(fields={k: deepcopy(v) for k, v in self.items()})
+    def copy(self):
+        return self.__class__(fields={k: v.copy() for k, v in self.items()})
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         return RecordLit({k: v.subst(name, replacement, level) for k, v in self.items()})
@@ -109,8 +109,8 @@ class RecordType(DictTerm):
         env = env if env is not None else EvalEnv()
         return RecordTypeValue({k: v.eval(env) for k, v in self.items()})
 
-    def __deepcopy__(self, memo):
-        return self.__class__(fields={k: deepcopy(v) for k, v in self.items()})
+    # def __deepcopy__(self, memo):
+    #     return self.__class__(fields={k: deepcopy(v) for k, v in self.items()})
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         return RecordType({k: v.subst(name, replacement, level) for k, v in self.items()})
@@ -136,4 +136,7 @@ class RecordType(DictTerm):
         for k, v in self.items():
             res += f"{k} : {v}, "
         return res[:-2] + " }"
+
+    def __repr__(self):
+        return self.__str__()
 

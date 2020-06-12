@@ -57,7 +57,24 @@ def FnType(label: str, domain: Value, codomain: Value) -> PiValue:
 
 
 class Pi(Term):
-    attrs = ["label", "type_", "body"]
+    # attrs = ['label', 'type_', 'body']
+    __slots__ = ['label', 'type_', 'body']
+
+    def __init__(self, label, type_, body, **kwargs):
+        self.label = label
+        self.type_ = type_
+        self.body = body
+
+    def copy(self, **kwargs):
+        new = Pi(
+            self.label,
+            self.type_,
+            self.body
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         if self.label == "_":

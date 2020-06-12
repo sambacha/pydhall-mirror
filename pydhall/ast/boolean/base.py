@@ -11,6 +11,9 @@ class Bool(Builtin):
     def __init__(self):
         Term.__init__(self)
 
+    def __hash__(self):
+        return hash(self.__class__)
+
 
 class BoolLit(_AtomicLit):
     _type = BoolTypeValue

@@ -605,7 +605,7 @@ class Dhall(Parser):
         super().__init__(*args, **kwargs)
 
     def emit(self, node, *args):
-        return node(*args, parser=self, offset=self.p_start)
+        return node(*args)
 
     def on_UnicodeEscape(self, _, digits):
         digits = self.p_flatten(digits)
@@ -895,8 +895,6 @@ class Dhall(Parser):
         if not rest:
             return f
         node = App.build(f, *[r[1] for r in rest])
-        node.parser=self
-        node.offset=self.p_start
         return node
 
     def on_NonEmptyList(self, _, first, rest):

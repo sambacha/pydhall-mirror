@@ -30,7 +30,24 @@ class IfValue(Value):
 
 
 class If(Term):
-    attrs = ["cond", "true", "false"]
+    # attrs = ['cond', 'true', 'false']
+    __slots__ = ['cond', 'true', 'false']
+
+    def __init__(self, cond, true, false, **kwargs):
+        self.cond = cond
+        self.true = true
+        self.false = false
+
+    def copy(self, **kwargs):
+        new = If(
+            self.cond,
+            self.true,
+            self.false
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
     _rebindable = ["cond", "true", "false"]
     _cbor_idx = 14
 

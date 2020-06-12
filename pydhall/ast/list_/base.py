@@ -83,7 +83,20 @@ class List(Builtin):
 
 
 class EmptyList(Term):
-    attrs = ["type_"]
+    # attrs = ['type_']
+    __slots__ = ['type_']
+
+    def __init__(self, type_, **kwargs):
+        self.type_ = type_
+
+    def copy(self, **kwargs):
+        new = EmptyList(
+            self.type_
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -114,7 +127,20 @@ class EmptyList(Term):
 
 
 class NonEmptyList(Term):
-    attrs = ["content"]
+    # attrs = ['content']
+    __slots__ = ['content']
+
+    def __init__(self, content, **kwargs):
+        self.content = content
+
+    def copy(self, **kwargs):
+        new = NonEmptyList(
+            self.content
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
     _cbor_idx = 4
 
     def type(self, ctx=None):

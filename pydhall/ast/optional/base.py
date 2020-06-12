@@ -21,6 +21,12 @@ class Optional(Builtin):
     def type(self, ctx=None):
         return FnType("_", TypeValue, TypeValue)
 
+    def __repr__(self):
+        return "Optional"
+
+    def __str__(self):
+        return "Optional"
+
 
 class OptionalOf(DependentValue):
     def __init__(self, type_):
@@ -59,7 +65,20 @@ class SomeValue(Value):
 
 
 class Some(Term):
-    attrs = ["val"]
+    # attrs = ['val']
+    __slots__ = ['val']
+
+    def __init__(self, val, **kwargs):
+        self.val = val
+
+    def copy(self, **kwargs):
+        new = Some(
+            self.val
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         return [5, None, self.val.cbor_values()]

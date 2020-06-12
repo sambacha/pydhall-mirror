@@ -107,23 +107,8 @@ class BuiltinValue(Value):
 class Node():
     attrs = []
 
-    def __init__(self, *args, parser=None, offset=None, **kwargs):
-        self.offset = offset
-        i = 0
-        for a in self.attrs:
-            if a in kwargs:
-                val = kwargs.pop(a)
-            else:
-                val = args[i]
-                i += 1
-            setattr(self, a, val)
-        if parser is None:
-            self.src = "<string>"
-        else:
-            self.src = parser.name
-
     def __hash__(self):
-        return hash_all([getattr(self, attr) for attr in self.attrs])
+        return hash_all([getattr(self, attr) for attr in self.__slots__])
 
     def _hash_attr(self, name):
         attr = getattr(self, name)
@@ -135,28 +120,21 @@ class Node():
         return hash(self) == hash(other)
 
     def __repr__(self):
-        offset = ", offset=%s" % self.offset if self.offset is not None else ""
-        return self.__class__.__name__ + "(%s%s)" % (
+        return self.__class__.__name__ + "(%s)" % (
             ", ".join(["%s=%s" % (
                     attr, repr(getattr(self, attr))
-                    ) for attr in self.attrs
-                ]), offset)
+                    ) for attr in self.__slots__
+                ]))
 
-    def __deepcopy__(self, memo):
-        return self.__class__(*[deepcopy(getattr(self, a), memo)
-                                for a in self.attrs])
-
-    def copy(self, **kwargs):
-        new = deepcopy(self)
-        for k, v in kwargs.items():
-            setattr(new, k, v)
-        return new
-
+    # TODO: clean this ugly mess
     def resolve(self, *ancestors):
-        if not self.attrs:
+        try:
+            if not self.__slots__:
+                return self
+        except AttributeError:
             return self
         attrs = {}
-        for name in self.attrs:
+        for name in self.__slots__:
             val = getattr(self, name)
             if isinstance(val, Node):
                 attrs[name] = val.resolve(*ancestors)
@@ -295,6 +273,9 @@ class DictTerm(dict, Term):
     def resolve(self, *ancestors):
         return self.__class__({k: v.resolve(*ancestors) for k,v in self.items()})
 
+    def copy(self):
+        return self.__class__(fields={k: v.copy() for k, v in self.items()})
+
 
 class BuiltinMeta(type):
     @classmethod
@@ -382,13 +363,24 @@ class Builtin(Term, metaclass=BuiltinMeta):
             key = cls.__name__.strip("_")
         Builtin._by_name[key] = cls
 
+    def __hash__(self):
+        return hash(self.__class__)
+
     def __init__(self, name=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if name is not None:
             self.__class__ = Builtin._by_name[name]
 
     def __str__(self):
+        if self._literal_name is not None:
+            return self._literal_name
         return self.__class__.__name__
+
+    def __repr__(self):
+        return self.__str__()
+
+    def copy(self):
+        return self
 
     def rebind(self, local, level=0):
         return self
@@ -408,7 +400,20 @@ class Builtin(Term, metaclass=BuiltinMeta):
 
 
 class _AtomicLit(Term):
-    attrs = ["value"]
+    # attrs = ['value']
+    __slots__ = ['value']
+
+    def __init__(self, value, **kwargs):
+        self.value = value
+
+    def copy(self, **kwargs):
+        new = self.__class__(
+            self.value
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
@@ -445,11 +450,26 @@ class OpValue(Value):
 
 
 class Op(Term):
-    attrs = ["l", "r"]
+    # attrs = ['l', 'r']
+    __slots__ = ['l', 'r']
     _rebindable = ["l", "r"]
     _cbor_idx = 3
 
     _cbor_op_indexes = {}
+
+
+    def __init__(self, l, r, **kwargs):
+        self.l = l
+        self.r = r
+
+    def copy(self, **kwargs):
+        new = self.__class__(
+            self.l,
+            self.r
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -500,9 +520,27 @@ class _FreeVar(Value):
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
         return other.__class__ is _FreeVar and self.index == other.index and self.name == other.name
 
+    def copy(self):
+        return _FreeVar(self.name, self.index)
+
 
 class Var(Term):
-    attrs = ["name", "index"]
+    # attrs = ['name', 'index']
+    __slots__ = ['name', 'index']
+
+    def __init__(self, name, index, **kwargs):
+        self.name = name
+        self.index = index
+
+    def copy(self, **kwargs):
+        new = Var(
+            self.name,
+            self.index
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
     _rebindable = []
     _cbor_idx = -4
 
@@ -536,7 +574,22 @@ class Var(Term):
 
 
 class LocalVar(Term):
-    attrs = ["name", "index"]
+    # attrs = ['name', 'index']
+    __slots__ = ['name', 'index']
+
+    def __init__(self, name, index, **kwargs):
+        self.name = name
+        self.index = index
+
+    def copy(self, **kwargs):
+        new = LocalVar(
+            self.name,
+            self.index
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         assert ctx is not None

@@ -9,7 +9,22 @@ from .function.pi import PiValue
 
 
 class ProjectType(Term):
-    attrs = ["record", "selector"]
+    # attrs = ['record', 'selector']
+    __slots__ = ['record', 'selector']
+
+    def __init__(self, record, selector, **kwargs):
+        self.record = record
+        self.selector = selector
+
+    def copy(self, **kwargs):
+        new = ProjectType(
+            self.record,
+            self.selector
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -83,7 +98,22 @@ class ProjectValue(Value):
 
 
 class Project(Term):
-    attrs = ["record", "field_names"]
+    # attrs = ['record', 'field_names']
+    __slots__ = ['record', 'field_names']
+
+    def __init__(self, record, field_names, **kwargs):
+        self.record = record
+        self.field_names = field_names
+
+    def copy(self, **kwargs):
+        new = Project(
+            self.record,
+            self.field_names
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -171,7 +201,22 @@ class FieldValue(Value):
 
 
 class Field(Term):
-    attrs = ["record", "field_name"]
+    # attrs = ['record', 'field_name']
+    __slots__ = ['record', 'field_name']
+
+    def __init__(self, record, field_name, **kwargs):
+        self.record = record
+        self.field_name = field_name
+
+    def copy(self, **kwargs):
+        new = Field(
+            self.record,
+            self.field_name
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()

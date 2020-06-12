@@ -55,12 +55,25 @@ def memoize(fn):
         return result
     return wrapped
 
-class Lambda(Term):
-    attrs = ["label", "type_", "body"]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._cache = {}
+class Lambda(Term):
+    # attrs = ['label', 'type_', 'body']
+    __slots__ = ['label', 'type_', 'body']
+
+    def __init__(self, label, type_, body, **kwargs):
+        self.label = label
+        self.type_ = type_
+        self.body = body
+
+    def copy(self, **kwargs):
+        new = Lambda(
+            self.label,
+            self.type_,
+            self.body
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -119,7 +132,7 @@ class Lambda(Term):
         return (f"λ({self.label} : {self.type_.dhall()} ) →", self.body.format_dhall())
 
     def __str__(self):
-        return f"λ({self.label} : {self.type_.dhall()} ) → {self.body}"
+        return f"λ({self.label} : {self.type_} ) → {self.body}"
 
 
 

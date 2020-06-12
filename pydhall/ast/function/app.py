@@ -38,7 +38,21 @@ class AppValue(Value):
 
 
 class App(Term):
-    attrs = ["fn", "arg"]
+    # attrs = ['fn', 'arg']
+    __slots__ = ['fn', 'arg']
+
+    def __init__(self, fn, arg, **kwargs):
+        self.fn = fn
+        self.arg = arg
+
+    def copy(self, **kwargs):
+        new = App(
+            self.fn,
+            self.arg
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     @classmethod
     def build(cls, *args):
@@ -94,3 +108,6 @@ class App(Term):
 
     def __str__(self):
         return f"{self.fn} {self.arg}"
+
+    def __repr__(self):
+        return self.__str__()

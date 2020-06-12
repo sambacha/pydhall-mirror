@@ -67,6 +67,9 @@ class Universe(Builtin):
     def rebind(self, local, level=0):
         return self
 
+    def __hash__(self):
+        return hash(self.__class__)
+
 
 class Sort(Universe):
     _eval = SortValue

@@ -190,7 +190,24 @@ class MergeValue(Value):
 
 
 class Merge(Term):
-    attrs = ["handler", "union", "annotation"]
+    # attrs = ['handler', 'union', 'annotation']
+    __slots__ = ['handler', 'union', 'annotation']
+
+    def __init__(self, handler, union, annotation, **kwargs):
+        self.handler = handler
+        self.union = union
+        self.annotation = annotation
+
+    def copy(self, **kwargs):
+        new = Merge(
+            self.handler,
+            self.union,
+            self.annotation
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         if self.annotation is not None:

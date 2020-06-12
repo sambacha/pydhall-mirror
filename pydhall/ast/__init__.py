@@ -29,7 +29,22 @@ from .import_.ops import ImportAltOp
 
 
 class Annot(Term):
-    attrs = ["expr", "annotation"]
+    # attrs = ['expr', 'annotation']
+    __slots__ = ['expr', 'annotation']
+
+    def __init__(self, expr, annotation, **kwargs):
+        self.expr = expr
+        self.annotation = annotation
+
+    def copy(self, **kwargs):
+        new = Annot(
+            self.expr,
+            self.annotation
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         return [26, self.expr.cbor_values(), self.annotation.cbor_values()]
@@ -67,7 +82,20 @@ class AssertValue(Value):
 
 
 class Assert(Term):
-    attrs = ["annotation"]
+    # attrs = ['annotation']
+    __slots__ = ['annotation']
+
+    def __init__(self, annotation, **kwargs):
+        self.annotation = annotation
+
+    def copy(self, **kwargs):
+        new = Assert(
+            self.annotation
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
     
     def cbor_values(self):
         return [19, self.annotation.cbor_values()]
@@ -93,12 +121,43 @@ class Assert(Term):
 
 
 class Binding(Node):
-    attrs = ["variable", "annotation", "value"]
+    # attrs = ['variable', 'annotation', 'value']
+    __slots__ = ['variable', 'annotation', 'value']
+
+    def __init__(self, variable, annotation, value, **kwargs):
+        self.variable = variable
+        self.annotation = annotation
+        self.value = value
+
+    def copy(self, **kwargs):
+        new = Binding(
+            self.variable,
+            self.annotation,
+            self.value
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
 
 class Let(Term):
-    attrs = ["bindings", "body"]
+    # attrs = ['bindings', 'body']
+    __slots__ = ['bindings', 'body']
     _cbor_idx = 25
+
+    def __init__(self, bindings, body, **kwargs):
+        self.bindings = bindings
+        self.body = body
+
+    def copy(self, **kwargs):
+        new = Let(
+            [b.copy() for b in self.bindings],
+            self.body.copy()
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     def eval(self, env=None):
         env = env.copy() if env is not None else EvalEnv()
@@ -187,7 +246,22 @@ class ToMapValue(Value):
     
 
 class ToMap(Term):
-    attrs = ["record", "type_"]
+    # attrs = ['record', 'type_']
+    __slots__ = ['record', 'type_']
+
+    def __init__(self, record, type_, **kwargs):
+        self.record = record
+        self.type_ = type_
+
+    def copy(self, **kwargs):
+        new = ToMap(
+            self.record,
+            self.type_
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         result = [27, self.record.cbor_values()]

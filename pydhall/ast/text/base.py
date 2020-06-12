@@ -13,9 +13,33 @@ class Text(Builtin):
     _type = TypeValue
     _eval = TextTypeValue
 
+    def __hash__(self):
+        return hash(self.__class__)
+
+    def __repr__(self):
+        return "Text"
+
+    def __str__(self):
+        return "Text"
+
 
 class Chunk(Node):
-    attrs = ["prefix", "expr"]
+    # attrs = ['prefix', 'expr']
+    __slots__ = ['prefix', 'expr']
+
+    def __init__(self, prefix, expr, **kwargs):
+        self.prefix = prefix
+        self.expr = expr
+
+    def copy(self, **kwargs):
+        new = Chunk(
+            self.prefix,
+            self.expr
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def quote(self, ctx=None, normalize=False):
         assert ctx is not None
@@ -70,7 +94,22 @@ class TextLitValue(Value):
 
 
 class TextLit(Term):
-    attrs = ["chunks", "suffix"]
+    # attrs = ['chunks', 'suffix']
+    __slots__ = ['chunks', 'suffix']
+
+    def __init__(self, chunks, suffix, **kwargs):
+        self.chunks = chunks
+        self.suffix = suffix
+
+    def copy(self, **kwargs):
+        new = TextLit(
+            self.chunks,
+            self.suffix
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()

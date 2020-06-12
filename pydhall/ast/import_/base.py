@@ -27,8 +27,23 @@ NullOrigin = object()
 def get_dir(p):
     return Path(os.path.dirname(p))
 
+
 class Import(Term):
-    attrs = ["hash", "import_mode"]
+    # attrs = ['hash', 'import_mode']
+    __slots__ = ['hash', 'import_mode']
+
+    def __init__(self, hash, import_mode, **kwargs):
+        self.hash = hash
+        self.import_mode = import_mode
+
+    def copy(self, **kwargs):
+        new = Import(
+            self.hash,
+            self.import_mode
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     class Mode:
         Code = 0
@@ -59,21 +74,33 @@ class Import(Term):
         if self.import_mode == Import.Mode.RawText:
             expr = PlainTextLit(content)
         else:
-            print(here.path)
             from pydhall.parser import parse
             expr = parse(content)
             expr = expr.resolve(*imports)
         _ = expr.type()
         expr = expr.eval().quote()
-        print("done: ", here.path)
-            # TODO: check hash if provided
+        # TODO: check hash if provided
         if self.import_mode == Import.Mode.Code:
             CACHE[here] = expr
         return expr
 
 
 class RemoteFile(Import):
-    attrs = ["url"] + Import.attrs
+    # attrs = ['url']
+    __slots__ = ['url']
+
+    def __init__(self, url, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.url = url
+
+    def copy(self, **kwargs):
+        new = RemoteFile(
+            self.url
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         scheme = 1 if self.url.scheme == "https" else 0
@@ -99,7 +126,21 @@ class RemoteFile(Import):
 
 
 class EnvVar(Import):
-    attrs = ["name"] + Import.attrs
+    # attrs = ['name']
+    __slots__ = ['name']
+
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = name
+
+    def copy(self, **kwargs):
+        new = EnvVar(
+            self.name
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
 
     def cbor_values(self):
         return [24, self.hash, self.import_mode, 6, self.name]
@@ -132,10 +173,20 @@ class EnvVar(Import):
 
 
 class LocalFile(Import):
-    attrs = ["path"] + Import.attrs
+    # attrs = ['path']
+    __slots__ = ['path']
 
     def __init__(self, path, hash=None, import_mode=0, **kwargs):
-        super().__init__(path, hash, import_mode, **kwargs)
+        super().__init__(hash, import_mode, **kwargs)
+        self.path = path
+
+    def copy(self, **kwargs):
+        new = LocalFile(
+            self.path
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
 
     def origin(self):
         "Origin returns NullOrigin, since EnvVars do not have an origin."
