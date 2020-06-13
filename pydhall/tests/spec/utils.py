@@ -4,20 +4,21 @@ import pytest
 
 from . import FAILURES
 
-def make_test_file_pairs(dir, b_ext=".dhall"):
+def make_test_file_pairs(dir, b_ext=".dhall", a_ext=".dhall"):
     pairs = []
     files = os.listdir(dir)
     for name1 in files:
         path1 = dir.joinpath(name1)
         if os.path.isdir(path1):
-            print(path1)
-            pairs.extend(make_test_file_pairs(path1, b_ext))
+            pairs.extend(make_test_file_pairs(path1, b_ext, a_ext))
+            continue
+        if not name1.endswith(a_ext):
             continue
         name2 = name1.replace("A.", "B.")
-        name2 = name2.replace(".dhall", b_ext)
+        name2 = name2.replace(a_ext, b_ext)
         path2 = dir.joinpath(name2)
         if (name1 != name2) and (name2 in files):
-            if str(path1).replace("A.dhall", "") in FAILURES:
+            if str(path1).replace("A" + a_ext, "") in FAILURES:
                 pairs.append(
                     pytest.param(
                         path1,
@@ -39,7 +40,6 @@ def collect_test_files(dir):
             result.extend(collect_test_files(path))
             continue
         if str(path).replace(".dhall", "") in FAILURES:
-            print(path)
             result.append(
                 pytest.param(
                     path,

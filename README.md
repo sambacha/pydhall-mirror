@@ -122,13 +122,20 @@ class ListHead(Builtin):
 Behind the scene, a metaclass handles the boring work of translating the dhall type into
 an internal value and of currying the applications.
 
-Once the parser accept to re-define the builtins at runtime (WIP), it's easy for the
+Once the parser allows to re-define the builtins at runtime (WIP), it's easy for the
 user to define custom builtins.
  
 ## Related work
 
 [dhall-python](https://github.com/SupraSummus/dhall-python): another pure python
 dhall implementation.
+
+## License
+
+Well, I'm refaining from applying AGPL on this work, but I'm not sure at the moment which
+one to pick.
+By sending a contribution to the project you allow me to license your work with any free
+software license (i.e. somewhere between AGPL and WTFPL).
 
 ## Credits
 
