@@ -41,7 +41,7 @@ FAILURES = [
 
     # Cache
     # "dhall-lang/tests/type-inference/success/CacheImports",
-    "dhall-lang/tests/type-inference/success/CacheImportsCanonicalize",
+    # "dhall-lang/tests/type-inference/success/CacheImportsCanonicalize",
     "dhall-lang/tests/import/success/hashFromCache",
 
 

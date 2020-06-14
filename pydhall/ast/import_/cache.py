@@ -1,3 +1,4 @@
+from pydhall.ast.base import Term
 class DhallCachePoisoned(Exception):
     pass
 
@@ -9,18 +10,21 @@ class ExprCache():
                 expr = self.fetch(key.hash)
             except KeyError:
                 pass
-            if expr.sha256() != key.hash:
+            if Term.from_cbor(expr).sha256() != key.hash:
                 raise DhallCachePoisoned
         try:
-            return self._cache[key.cannon]
+            result = self.fetch(key.cannon, key.import_mode)
+            # print("Hit", key)
+            return result
         except KeyError:
+            # print("Miss", key)
             raise KeyError(key)
 
     def __setitem__(self, key, value):
         if key.hash is not None:
-            self.save(key.hash, value)
+            self.save(key.hash, value.cbor())
         else:
-            self.save(key.cannon, value)
+            self.save(key.cannon, value, key.import_mode)
 
 
 class InMemoryCache(ExprCache):
@@ -28,18 +32,18 @@ class InMemoryCache(ExprCache):
     def __init__(self):
         self._cache = {}
 
-    def fetch(self, key):
-        return self._cache[key]
+    def fetch(self, key, mode=None):
+        return self._cache[(mode, key)]
 
-    def save(self, key, value):
-        self._cache[key] = value
+    def save(self, key, value, mode=None):
+        self._cache[(mode, key)] = value
 
 
 class NullCache(ExprCache):
     "Do not cache"
-    def fetch(self, key):
+    def fetch(self, key, mode=None):
         raise KeyError(key)
 
-    def save(self, key, value):
+    def save(self, key, value, mode=None):
         pass
 

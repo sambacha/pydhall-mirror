@@ -73,11 +73,10 @@ class Import(Term):
                 raise DhallImportError("Detected import cycle in %s" % a)
         imports = list(ancestors)
         imports.append(here)
-        if self.import_mode == Import.Mode.Code:
-            try:
-                return CACHE[here]
-            except KeyError:
-                pass
+        try:
+            return CACHE[here]
+        except KeyError:
+            pass
         content = here.fetch(origin)
         if self.import_mode == Import.Mode.RawText:
             expr = PlainTextLit(content)
@@ -88,8 +87,7 @@ class Import(Term):
         _ = expr.type()
         expr = expr.eval().quote()
         # TODO: check hash if provided
-        if self.import_mode == Import.Mode.Code:
-            CACHE[here] = expr
+        CACHE[here] = expr
         return expr
 
     @classmethod
