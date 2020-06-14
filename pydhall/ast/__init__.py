@@ -18,9 +18,8 @@ from .universe import UniverseValue, TypeValue, KindValue, SortValue, Universe, 
 from .union import UnionType, Merge
 from .list_.base import List, EmptyList, NonEmptyList, ListOf, EmptyListValue, NonEmptyListValue
 from .list_.ops import ListAppendOp
-from .boolean.base import Bool, BoolLit, True_, False_, BoolTypeValue
+from .boolean.base import Bool, BoolLit, True_, False_, BoolTypeValue, If
 from .boolean.ops import *
-from .if_ import If
 from .function import Lambda, Pi
 from .function.pi import PiValue
 from .function.app import App
@@ -97,7 +96,6 @@ class Assert(Term):
             setattr(new, k, v)
         return new
 
-    
     def cbor_values(self):
         return [19, self.annotation.cbor_values()]
 
