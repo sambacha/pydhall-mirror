@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-from urllib.parse import ParseResult as URL
+from urllib.parse import urljoin, quote, urlparse, ParseResult as URL
+from urllib import request
 
 from ..base import Term, Node
 from ..text.base import PlainTextLit, Text
@@ -55,8 +56,13 @@ class Import(Term):
     def resolve(self, *ancestors):
         here = self
         origin = NullOrigin
-        if len(ancestors) == 1 and isinstance(ancestors[0], Path):
-            ancestors = [LocalFile(ancestors[0])]
+        # allow resolution by Path or url rather than having to create an
+        # Import object at call site.
+        if len(ancestors) == 1:
+            if isinstance(ancestors[0], Path):
+                ancestors = [LocalFile(ancestors[0])]
+            elif isinstance(ancestors[0], str):
+                ancestors = [RemoteFile(urlparse(ancestors[0]))]
         if len(ancestors) >= 1:
             origin = ancestors[-1].origin()
             here = self.chain_onto(ancestors[-1])
@@ -100,7 +106,24 @@ class RemoteFile(Import):
 
     def __init__(self, url, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url = url
+        parts = Path(url.path.lstrip("/")).parts
+        result = []
+        # import ipdb; ipdb.set_trace()
+        for p in parts:
+            if p == ".":
+                continue
+            elif p == "..":
+                if len(result) == 0:
+                    result.append(p)
+                    continue
+                if len(result) == 1 and result[0] == "..":
+                    continue
+                result.pop()
+            else:
+                result.append(p)
+        path = "/".join(result)
+        self.url = URL(url[0], url[1], path, url[3], url[4], url[5])
+        self.cannon = self.url.geturl()
 
     def copy(self, **kwargs):
         new = RemoteFile(
@@ -109,6 +132,20 @@ class RemoteFile(Import):
         for k, v in kwargs.items():
             setattr(new, k, v)
         return new
+
+    def chain_onto(self, base):
+        return self
+
+    def fetch(self, origin):
+        resp = request.urlopen(self.url.geturl())
+        # TODO: implemeent CORS
+        return resp.read().decode("utf-8")
+
+    def origin(self):
+        return URL(self.url[0], self.url[1], "", "", "", "").geturl()
+
+    def as_location(self):
+        return App.build(Field(LOCATION_TYPE, "Remote"), PlainTextLit(self.url.geturl()))
 
     def cbor_values(self):
         scheme = 1 if self.url.scheme == "https" else 0
@@ -158,6 +195,7 @@ class EnvVar(Import):
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = name
+        self.cannon = "env:" + self.name
 
     def copy(self, **kwargs):
         new = EnvVar(
@@ -169,6 +207,9 @@ class EnvVar(Import):
 
     def cbor_values(self):
         return [24, self.hash, self.import_mode, 6, self.name]
+
+    def as_location(self):
+        return App.build(Field(LOCATION_TYPE, "Environment"), PlainTextLit(self.name))
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
@@ -211,6 +252,11 @@ class LocalFile(Import):
     def __init__(self, path, hash=None, import_mode=0, **kwargs):
         super().__init__(hash, import_mode, **kwargs)
         self.path = path
+        self._cannon = None
+
+    @property
+    def cannon(self):
+        return str(self.path)
 
     def copy(self, **kwargs):
         new = LocalFile(
@@ -223,6 +269,12 @@ class LocalFile(Import):
     def origin(self):
         "Origin returns NullOrigin, since EnvVars do not have an origin."
         return NullOrigin
+
+    def as_location(self):
+        prefix = "./" if self.is_relative_to_origin() else ("")
+        return App.build(
+            Field(LOCATION_TYPE, "Local"),
+            PlainTextLit(prefix + str(self.path)))
 
     def __str__(self):
         if self.is_absolute() or self.is_relative_to_home() or self.is_relative_to_parent():
@@ -241,6 +293,17 @@ class LocalFile(Import):
     def is_relative_to_parent(self):
         return str(self.path).startswith("..")
 
+    def is_relative_to_origin(self):
+        return not (
+            self.is_absolute()
+            or self.is_relative_to_home()
+            or self.is_relative_to_parent())
+
+    def as_relative_url(self):
+        if self.is_absolute() or self.is_relative_to_home():
+            raise ValueError()
+        return "/".join([quote(p) for p in self.path.parts])
+
     def fetch(self, origin):
         if origin is not NullOrigin:
             raise DhallImportError("Can't get %s from remote import at %s" % (self, origin))
@@ -251,26 +314,13 @@ class LocalFile(Import):
         if isinstance(base, LocalFile):
             if self.is_absolute() or self.is_relative_to_home():
                 return self
-            return LocalFile(get_dir(base.path).joinpath(self.path), None, 0)
-
-        # switch r := base.(type) {
-        # case LocalFile:
-        #     if l.IsAbs() || l.IsRelativeToHome() {
-        #         return l, nil
-        #     }
-        #     return LocalFile(path.Join(path.Dir(string(r)), string(l))), nil
-        # case RemoteFile:
-        #     if l.IsAbs() {
-        #         return nil, errors.New("Can't get absolute path from remote import")
-        #     }
-        #     if l.IsRelativeToHome() {
-        #         return nil, errors.New("Can't get home-relative path from remote import")
-        #     }
-        #     newURL := r.url.ResolveReference(l.asRelativeRef())
-        #     return RemoteFile{url: newURL}, nil
-        # default:
-        #     return l, nil
-        # }
+            return LocalFile(Path(os.path.normpath(get_dir(base.path).joinpath(self.path))), None, 0)
+        if isinstance(base, RemoteFile):
+            # TODO: better exception
+            if self.is_absolute() or self.is_relative_to_home():
+                raise ValueError(self)
+            return RemoteFile(urlparse(urljoin(base.url.geturl(), self.as_relative_url())), None, 0)
+        return self
 
     def cbor_values(self):
         parts = list(self.path.parts)
@@ -306,6 +356,7 @@ class Missing(Import):
 
     def __init__(self, hash=None, mode=0, **kwargs):
         super().__init__(hash, mode, **kwargs)
+        self.cannon = None
 
     def chain_onto(self, base):
         return Missing()
