@@ -40,7 +40,7 @@ FAILURES = [
     "dhall-lang/tests/parser/failure/doubleBoundsNeg",
 
     # Cache
-    "dhall-lang/tests/type-inference/success/CacheImports",
+    # "dhall-lang/tests/type-inference/success/CacheImports",
     "dhall-lang/tests/type-inference/success/CacheImportsCanonicalize",
     "dhall-lang/tests/import/success/hashFromCache",
 
@@ -61,8 +61,6 @@ FAILURES = [
 
     ## imports
     "dhall-lang/tests/import/success/unit/AlternativeHashMismatch",
-    # "dhall-lang/tests/import/success/unit/asLocation/RemoteCanonicalize3",
-
 
     # Low priority
 
