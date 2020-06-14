@@ -59,6 +59,7 @@ def memoize(fn):
 class Lambda(Term):
     # attrs = ['label', 'type_', 'body']
     __slots__ = ['label', 'type_', 'body']
+    _cbor_idx = 1
 
     def __init__(self, label, type_, body, **kwargs):
         self.label = label
@@ -113,6 +114,14 @@ class Lambda(Term):
         if self.label == "_":
             return [1, self.type_.cbor_values(), self.body.cbor_values()]
         return [1, self.label, self.type_.cbor_values(), self.body.cbor_values()]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        if len(decoded) == 2:
+            decoded = ["_"] + decoded
+        return cls(decoded[0], Term.from_cbor(decoded=decoded[1]), Term.from_cbor(decoded=decoded[2]))
 
     def subst(self, name, replacement, level=0):
         body_level = level + 1 if self.label == name else level

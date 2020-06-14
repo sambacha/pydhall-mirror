@@ -1,6 +1,7 @@
 from ..base import Term, Builtin, Value, EvalEnv, Callable, QuoteContext, DependentValue, TypeContext
 from ..universe import TypeValue
 from ..function.pi import FnType
+from ..function.app import App
 
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
@@ -22,7 +23,6 @@ class ListOf(Value):
 
     def quote(self, ctx=None, normalize=False):
         ctx = ctx if ctx is not None else QuoteContext()
-        from .. import App
         return App.build(List(), self.type_.quote(ctx, normalize))
 
     def alpha_equivalent(self, other: Value, level: int = 0) -> bool:
@@ -85,6 +85,7 @@ class List(Builtin):
 class EmptyList(Term):
     # attrs = ['type_']
     __slots__ = ['type_']
+    _cbor_idx = 28
 
     def __init__(self, type_, **kwargs):
         self.type_ = type_
@@ -111,7 +112,6 @@ class EmptyList(Term):
         return EmptyListValue(self.type_.eval(env))
 
     def cbor_values(self):
-        from .. import App
         if isinstance(self.type_, App) and isinstance(self.type_.fn, List):
             return [4, self.type_.arg.cbor_values()]
         return [28, self.type_.cbor_values()]
@@ -129,6 +129,7 @@ class EmptyList(Term):
 class NonEmptyList(Term):
     # attrs = ['content']
     __slots__ = ['content']
+    _cbor_idx = 4
 
     def __init__(self, content, **kwargs):
         self.content = content
@@ -141,7 +142,8 @@ class NonEmptyList(Term):
             setattr(new, k, v)
         return new
 
-    _cbor_idx = 4
+    def __hash__(self):
+        return hash(tuple(self.content))
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -161,6 +163,15 @@ class NonEmptyList(Term):
 
     def cbor_values(self):
         return [4, None] + [e.cbor_values() for e in self.content]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        if len(decoded) == 1:
+            return EmptyList(App.build(List(), Term.from_cbor(decoded=decoded[0])))
+        content = [Term.from_cbor(decoded=i) for i in decoded[1:]]
+        return NonEmptyList(content)
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         return NonEmptyList([i.subst(name, replacement, level) for i in self.content])

@@ -59,11 +59,15 @@ def FnType(label: str, domain: Value, codomain: Value) -> PiValue:
 class Pi(Term):
     # attrs = ['label', 'type_', 'body']
     __slots__ = ['label', 'type_', 'body']
+    _cbor_idx = 2
 
     def __init__(self, label, type_, body, **kwargs):
         self.label = label
         self.type_ = type_
         self.body = body
+
+    def __hash__(self):
+        return hash((self.label, self.type_, self.body))
 
     def copy(self, **kwargs):
         new = Pi(
@@ -78,8 +82,8 @@ class Pi(Term):
 
     def cbor_values(self):
         if self.label == "_":
-            return [2, self.type_.cbor_values(), self.body.cbor_values()]
-        return [2, self.label, self.type_.cbor_values(), self.body.cbor_values()]
+            return [self._cbor_idx, self.type_.cbor_values(), self.body.cbor_values()]
+        return [self._cbor_idx, self.label, self.type_.cbor_values(), self.body.cbor_values()]
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -127,4 +131,14 @@ class Pi(Term):
 
     def __str__(self):
         return f"∀ ( {self.label} : {self.type_} ) → {self.body}"
+
+    @classmethod
+    def from_cbor(self, encoded=None, decoded=None):
+        assert decoded is not None
+        assert decoded[0] == self._cbor_idx
+        if len(decoded) == 4:
+            return Pi(decoded[1], *[Term.from_cbor(decoded=i) for i in decoded[2:]])
+        if len(decoded) == 3:
+            return Pi("_", *[Term.from_cbor(decoded=i) for i in decoded[1:]])
+        assert False
 

@@ -40,6 +40,7 @@ class AppValue(Value):
 class App(Term):
     # attrs = ['fn', 'arg']
     __slots__ = ['fn', 'arg']
+    _cbor_idx = 0
 
     def __init__(self, fn, arg, **kwargs):
         self.fn = fn
@@ -92,6 +93,12 @@ class App(Term):
             args = [fn.arg.cbor_values()] + args
             fn = fn.fn
         return [0, fn.cbor_values()] + args
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        return App.build(*[Term.from_cbor(decoded=i) for i in decoded])
 
     def subst(self, name, replacement, level=0):
         return App(

@@ -31,6 +31,7 @@ from .import_.ops import ImportAltOp
 class Annot(Term):
     # attrs = ['expr', 'annotation']
     __slots__ = ['expr', 'annotation']
+    _cbor_idx = 26
 
     def __init__(self, expr, annotation, **kwargs):
         self.expr = expr
@@ -44,7 +45,6 @@ class Annot(Term):
         for k, v in kwargs.items():
             setattr(new, k, v)
         return new
-
 
     def cbor_values(self):
         return [26, self.expr.cbor_values(), self.annotation.cbor_values()]
@@ -84,6 +84,7 @@ class AssertValue(Value):
 class Assert(Term):
     # attrs = ['annotation']
     __slots__ = ['annotation']
+    _cbor_idx = 19
 
     def __init__(self, annotation, **kwargs):
         self.annotation = annotation
@@ -218,6 +219,19 @@ class Let(Term):
         else:
             return [25] + bindings + [self.body.cbor_values()]
 
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        bindings = []
+        while len(decoded) > 3:
+            var = decoded.pop(0)
+            annot = Term.from_cbor(decoded=decoded.pop(0))
+            val = Term.from_cbor(decoded=decoded.pop(0))
+            bindings.append(Binding(var, annot, val))
+        assert len(decoded) == 1
+        return Let(bindings, Term.from_cbor(decoded=decoded[0]))
+
     # def resolve(self, *ancestors):
     #     bindings = []
     #     for b in self.bindings:
@@ -248,6 +262,7 @@ class ToMapValue(Value):
 class ToMap(Term):
     # attrs = ['record', 'type_']
     __slots__ = ['record', 'type_']
+    _cbor_idx = 27
 
     def __init__(self, record, type_, **kwargs):
         self.record = record
@@ -262,12 +277,20 @@ class ToMap(Term):
             setattr(new, k, v)
         return new
 
-
     def cbor_values(self):
         result = [27, self.record.cbor_values()]
         if self.type_ is not None:
             result += [self.type_.cbor_values()]
         return result
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        decoded = [Term.from_cbor(decoded=i) for i in decoded]
+        if len(decoded) == 1:
+            decoded.append(None)
+        return ToMap(*decoded)
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()

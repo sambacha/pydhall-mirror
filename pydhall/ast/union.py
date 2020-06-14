@@ -5,7 +5,7 @@ import cbor
 from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 from pydhall.utils import cbor_dict
 
-from .base import Term, Value, TypeContext, EvalEnv, QuoteContext, Callable
+from .base import Term, Value, TypeContext, EvalEnv, QuoteContext, Callable, DictTerm
 from .universe import TypeValue, UniverseValue, SortValue, KindValue
 from .record.base import RecordTypeValue, RecordLitValue
 from .optional import OptionalOf, SomeValue, NoneOf
@@ -53,11 +53,12 @@ class UnionTypeValue(dict, Value):
         return UnionTypeValue(result)
 
 
-class UnionType(dict, Term):
+class UnionType(DictTerm):
+    _cbor_idx = 11
 
-    def __init__(self, alternatives, *args, **kwargs):
-        Term.__init__(self, *args, **kwargs)
-        dict.__init__(self, alternatives)
+    # def __init__(self, alternatives, *args, **kwargs):
+    #     Term.__init__(self, *args, **kwargs)
+    #     dict.__init__(self, alternatives)
 
     def __deepcopy__(self, memo):
         return self.__class__(alternatives={k: deepcopy(v) for k, v in self.items()})
@@ -102,6 +103,24 @@ class UnionType(dict, Term):
             if v is not None:
                 v = v.rebind(local, level)
             result[k] = v
+        return UnionType(result)
+
+    def resolve(self, *ancestors):
+        result = {}
+        for k, v in self.items():
+            if v is None:
+                result[k] = v
+            else:
+                result[k] = v.resolve(*ancestors)
+        return UnionType(result)
+
+    def copy(self, **kwargs):
+        result = {}
+        for k, v in self.items():
+            if v is None:
+                result[k] = v
+            else:
+                result[k] = v.copy()
         return UnionType(result)
 
 
@@ -151,6 +170,7 @@ class UnionVal(Value):
         val = self.val.copy() if self.val is not None else None
         return UnionVal(self.type_.copy(), self.alternative, val)
 
+
 class MergeValue(Value):
     def __init__(self, handler, union, annotation=None):
         self.handler = handler
@@ -192,6 +212,7 @@ class MergeValue(Value):
 class Merge(Term):
     # attrs = ['handler', 'union', 'annotation']
     __slots__ = ['handler', 'union', 'annotation']
+    _cbor_idx = 6
 
     def __init__(self, handler, union, annotation, **kwargs):
         self.handler = handler
@@ -208,12 +229,19 @@ class Merge(Term):
             setattr(new, k, v)
         return new
 
-
     def cbor_values(self):
         if self.annotation is not None:
             return [6, self.handler.cbor_values(),
                     self.union.cbor_values(), self.annotation.cbor_values()]
         return [6, self.handler.cbor_values(), self.union.cbor_values()]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        if len(decoded) == 2:
+            decoded.append(None)
+        return Merge(*[Term.from_cbor(decoded=i) for i in decoded])
 
     def subst(self, name: str, replacement: Term, level: int = 0):
         h = self.handler.subst(name, replacement, level)

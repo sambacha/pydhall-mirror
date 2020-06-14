@@ -39,6 +39,7 @@ class RecordLitValue(dict, Value):
 
 
 class RecordLit(DictTerm):
+    _cbor_idx = 8
     def cbor_values(self):
         return [8, {k: self[k].cbor_values() for k in sorted(list(self.keys()))}]
 
@@ -60,6 +61,17 @@ class RecordLit(DictTerm):
 
     def rebind(self, local: Term, level: int = 0):
         return RecordLit({k:v.rebind(local, level) for k, v in self.items()})
+
+    def __str__(self):
+        if len(self) == 0:
+            return "{=}"
+        res = "{ "
+        for k, v in self.items():
+            res += f"{k} = {v}, "
+        return res[:-2] + " }"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class RecordTypeValue(dict, Value):
@@ -102,6 +114,8 @@ class RecordTypeValue(dict, Value):
 
 
 class RecordType(DictTerm):
+    _cbor_idx = 7
+
     def cbor_values(self):
         return [7, {k: self[k].cbor_values() for k in sorted(list(self.keys()))}]
 

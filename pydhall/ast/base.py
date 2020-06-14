@@ -1,4 +1,3 @@
-from copy import deepcopy
 from hashlib import sha256
 from functools import reduce
 
@@ -192,26 +191,46 @@ class Term(Node):
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
-        if decoded is None:
-            decoded = cbor.loads(encoded)
-        if isinstance(decoded, list):
-            term_cls = cls._cbor_indexes[decoded[0]]
-            if term_cls.from_cbor.__func__ is Term.from_cbor.__func__:
-                return term_cls(
-                    *[Term.from_cbor(i) for i in decoded[1:]])
+
+        def _decode_from_class(_cls, data):
+            if _cls.from_cbor.__func__ is Term.from_cbor.__func__:
+                # the class doesn't implement it's own from_cbor, we
+                # call the constructor.
+                return _cls(*[Term.from_cbor(decoded=i) for i in data[1:]])
             else:
-                return term_cls.from_cbor(decoded=decoded)
-        elif isinstance(decoded, bool):
+                # we let the class dealing with the data
+                return _cls.from_cbor(decoded=data)
+
+        if decoded is None:
+            if encoded is None:
+                return None
+            decoded = cbor.loads(encoded)
+            if isinstance(decoded, cbor.Tag):
+                decoded = decoded.value
+        if isinstance(decoded, bool):
             return Term._cbor_indexes[-1](decoded)  # BoolLit
-        elif isinstance(decoded, str):
+        elif isinstance(decoded, int):
+            return Term._cbor_indexes[-4]("_", decoded) # Var
+        elif isinstance(decoded, list):
+            # TODO: these Tag unwrapings are made solely to
+            # make the tests pass. Check the standard way
+            # to deal with those once all is migrated to cbor2
+            if isinstance(decoded[0], cbor.Tag):
+                decoded[0] = decoded[0].value
             try:
-                return Term._cbor_indexes[-2](decoded)  # Builtin
+                term_cls = cls._cbor_indexes[decoded[0]]
             except KeyError:
-                return Term._cbor_indexes[-4](*decoded)
+                assert isinstance(decoded[0], str)
+                if isinstance(decoded[1], cbor.Tag):
+                    decoded[1] = decoded[1].value
+                return cls._cbor_indexes[-4](*decoded) # Var
+            return _decode_from_class(term_cls, decoded)
+        elif isinstance(decoded, str):
+            term_cls = Term._cbor_indexes[decoded]
+            return _decode_from_class(term_cls, [])
         elif isinstance(decoded, float):
             return Term._cbor_indexes[-3](decoded)  # DoubleLit
         assert False
-
 
     def sha256(self):
         sha = sha256(self.cbor()).hexdigest()
@@ -267,6 +286,11 @@ class DictTerm(dict, Term):
         Term.__init__(self, *args, **kwargs)
         dict.__init__(self, fields)
 
+    def __init_subclass__(cls, /, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls._cbor_idx is not None:
+            Term._cbor_indexes[cls._cbor_idx] = cls
+
     def __hash__(self):
         return hash_all(self)
 
@@ -275,6 +299,12 @@ class DictTerm(dict, Term):
 
     def copy(self):
         return self.__class__(fields={k: v.copy() for k, v in self.items()})
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        return cls({k: Term.from_cbor(decoded=v) for k, v in decoded[0].items()})
 
 
 class BuiltinMeta(type):
@@ -351,17 +381,20 @@ class BuiltinMeta(type):
 
 
 class Builtin(Term, metaclass=BuiltinMeta):
-    _cbor_idx = -2
+    _cbor_idx = None
     _by_name = {}
     _literal_name = None
 
     def __init_subclass__(cls, /, **kwargs):
-        super().__init_subclass__(**kwargs)
         if cls._literal_name is not None:
             key = cls._literal_name
         else:
             key = cls.__name__.strip("_")
+        cls._cbor_idx = key
+        # if key == "Natural":
+        #     import ipdb; ipdb.set_trace()
         Builtin._by_name[key] = cls
+        super().__init_subclass__(**kwargs)
 
     def __hash__(self):
         return hash(self.__class__)
@@ -414,10 +447,10 @@ class _AtomicLit(Term):
             setattr(new, k, v)
         return new
 
-
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
         if decoded is None:
+            1/0
             decoded = cbor.loads(encoded)
         return cls(decoded[1])
 
@@ -473,14 +506,15 @@ class Op(Term):
 
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
-        Op._cbor_indexes[cls._op_idx] = cls
+        Op._cbor_op_indexes[cls._op_idx] = cls
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
         if decoded is None:
+            1/0
             decoded = cbor.loads(encoded)
         return cls._cbor_op_indexes[decoded[1]](
-            *[Term.from_cbor(i) for i in decoded[2:]])
+            *[Term.from_cbor(decoded=i) for i in decoded[2:]])
 
     def type(self, ctx=None):
         if self._type is not None:
@@ -527,6 +561,7 @@ class _FreeVar(Value):
 class Var(Term):
     # attrs = ['name', 'index']
     __slots__ = ['name', 'index']
+    _cbor_idx = -4
 
     def __init__(self, name, index, **kwargs):
         self.name = name
@@ -541,8 +576,11 @@ class Var(Term):
             setattr(new, k, v)
         return new
 
-    _rebindable = []
-    _cbor_idx = -4
+    def __hash__(self):
+        return hash((self.name, self.index))
+
+    def rebind(self, *args, **kwargs):
+        return self
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()

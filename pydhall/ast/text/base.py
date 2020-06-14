@@ -40,7 +40,6 @@ class Chunk(Node):
             setattr(new, k, v)
         return new
 
-
     def quote(self, ctx=None, normalize=False):
         assert ctx is not None
         return Chunk(self.prefix, self.expr.quote(ctx, normalize))
@@ -96,6 +95,7 @@ class TextLitValue(Value):
 class TextLit(Term):
     # attrs = ['chunks', 'suffix']
     __slots__ = ['chunks', 'suffix']
+    _cbor_idx = 18
 
     def __init__(self, chunks, suffix, **kwargs):
         self.chunks = chunks
@@ -110,7 +110,6 @@ class TextLit(Term):
             setattr(new, k, v)
         return new
 
-
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
         for c in self.chunks:
@@ -123,6 +122,19 @@ class TextLit(Term):
             out.extend([c.prefix, c.expr.cbor_values()])
         out.append(self.suffix)
         return out
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        suffix = decoded.pop()
+        chunks = []
+        while decoded:
+            chunks.append(
+                Chunk(
+                    decoded.pop(0),
+                    Term.from_cbor(decoded=decoded.pop(0))))
+        return TextLit(chunks, suffix)
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()

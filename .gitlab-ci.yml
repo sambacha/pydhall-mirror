@@ -15,5 +15,5 @@ spec_tests:
     - pip install -r requirements.txt
     - pip install -e .
   script:
-    - pytest --cov=pydhall/parser --ignore=src --cov-report=term --cov-report=html
+    - pytest --cov=pydhall --ignore=src --cov-report=term --cov-report=html
 

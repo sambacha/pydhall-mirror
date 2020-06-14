@@ -25,7 +25,6 @@ class ProjectType(Term):
             setattr(new, k, v)
         return new
 
-
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
@@ -100,6 +99,7 @@ class ProjectValue(Value):
 class Project(Term):
     # attrs = ['record', 'field_names']
     __slots__ = ['record', 'field_names']
+    _cbor_idx = 10
 
     def __init__(self, record, field_names, **kwargs):
         self.record = record
@@ -113,7 +113,6 @@ class Project(Term):
         for k, v in kwargs.items():
             setattr(new, k, v)
         return new
-
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
@@ -133,6 +132,16 @@ class Project(Term):
 
     def cbor_values(self):
         return [10, self.record.cbor_values()] + self.field_names
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        record = Term.from_cbor(decoded=decoded.pop(0))
+        proj = decoded[0]
+        if isinstance(proj[0], list):
+            return ProjectType(record, Term.from_cbor(decoded=proj[0]))
+        return cls(record, decoded)
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
@@ -203,6 +212,7 @@ class FieldValue(Value):
 class Field(Term):
     # attrs = ['record', 'field_name']
     __slots__ = ['record', 'field_name']
+    _cbor_idx = 9
 
     def __init__(self, record, field_name, **kwargs):
         self.record = record
@@ -242,6 +252,12 @@ class Field(Term):
 
     def cbor_values(self):
         return [9, self.record.cbor_values(), self.field_name]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        return cls(Term.from_cbor(decoded=decoded[0]), decoded[1])
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()

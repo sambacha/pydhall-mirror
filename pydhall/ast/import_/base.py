@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import ParseResult as URL
 
 from ..base import Term, Node
 from ..text.base import PlainTextLit, Text
@@ -31,6 +32,7 @@ def get_dir(p):
 class Import(Term):
     # attrs = ['hash', 'import_mode']
     __slots__ = ['hash', 'import_mode']
+    _cbor_idx = 24
 
     def __init__(self, hash, import_mode, **kwargs):
         self.hash = hash
@@ -84,10 +86,17 @@ class Import(Term):
             CACHE[here] = expr
         return expr
 
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded[0] == cls._cbor_idx
+        return _CBOR_SCHEMES[decoded[3]].from_cbor(decoded=decoded)
+
 
 class RemoteFile(Import):
     # attrs = ['url']
     __slots__ = ['url']
+    _cbor_idx = None
 
     def __init__(self, url, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -100,7 +109,6 @@ class RemoteFile(Import):
         for k, v in kwargs.items():
             setattr(new, k, v)
         return new
-
 
     def cbor_values(self):
         scheme = 1 if self.url.scheme == "https" else 0
@@ -120,6 +128,23 @@ class RemoteFile(Import):
         result.append(query)
         return result
 
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == 24
+        hash = decoded.pop(0)
+        mode = decoded.pop(0)
+        scheme = decoded.pop(0)
+        scheme = "http" if scheme == 0 else "https" 
+        headers = decoded.pop(0)
+        authority = decoded.pop(0)
+        parts = decoded[:-1]
+        query = decoded[-1]
+        query = query if query is not None else ""
+        path = "/" + "/".join(parts).strip("/")
+        url = URL(scheme, authority, path, "", query, "")
+        return cls(url, hash, mode)
+
     def __hash__(self):
         # TODO: canoniacalize the url
         return hash((self.import_mode, self.url))
@@ -128,6 +153,7 @@ class RemoteFile(Import):
 class EnvVar(Import):
     # attrs = ['name']
     __slots__ = ['name']
+    _cbor_idx = None
 
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -141,9 +167,14 @@ class EnvVar(Import):
             setattr(new, k, v)
         return new
 
-
     def cbor_values(self):
         return [24, self.hash, self.import_mode, 6, self.name]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == 24
+        return cls(decoded[3], decoded[0], decoded[1])
 
     def origin(self):
         "Origin returns NullOrigin, since EnvVars do not have an origin."
@@ -175,6 +206,7 @@ class EnvVar(Import):
 class LocalFile(Import):
     # attrs = ['path']
     __slots__ = ['path']
+    _cbor_idx = None
 
     def __init__(self, path, hash=None, import_mode=0, **kwargs):
         super().__init__(hash, import_mode, **kwargs)
@@ -255,8 +287,22 @@ class LocalFile(Import):
             path_kind = 3
         return [24, self.hash, self.import_mode, path_kind] + parts
 
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == 24
+        hash = decoded.pop(0)
+        mode = decoded.pop(0)
+        kind = decoded.pop(0)
+        path = Path(_PATH_KINDS[kind]).joinpath(*decoded)
+        return cls(path, hash, mode)
+
+
+_PATH_KINDS = {2: "/", 3: "", 4: "..", 5: "~"}
+
 
 class Missing(Import):
+    _cbor_idx = None
 
     def __init__(self, hash=None, mode=0, **kwargs):
         super().__init__(hash, mode, **kwargs)
@@ -272,3 +318,21 @@ class Missing(Import):
 
     def cbor_values(self):
         return [24, None, self.import_mode, 7]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == 24
+        return cls(mode=decoded[1])
+
+
+_CBOR_SCHEMES = {
+    0: RemoteFile,
+    1: RemoteFile,
+    2: LocalFile,
+    3: LocalFile,
+    4: LocalFile,
+    5: LocalFile,
+    6: EnvVar,
+    7: Missing
+}

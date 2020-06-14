@@ -67,6 +67,7 @@ class SomeValue(Value):
 class Some(Term):
     # attrs = ['val']
     __slots__ = ['val']
+    _cbor_idx = 5
 
     def __init__(self, val, **kwargs):
         self.val = val
@@ -79,9 +80,14 @@ class Some(Term):
             setattr(new, k, v)
         return new
 
-
     def cbor_values(self):
         return [5, None, self.val.cbor_values()]
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == cls._cbor_idx
+        return cls(Term.from_cbor(decoded = decoded[1]))
 
     def eval(self, env=None):
         env = env if env is not None else EvalEnv()
