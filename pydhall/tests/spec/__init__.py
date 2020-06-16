@@ -40,9 +40,6 @@ FAILURES = [
     "dhall-lang/tests/parser/failure/doubleBoundsNeg",
 
     # Cache
-    # "dhall-lang/tests/type-inference/success/CacheImports",
-    # "dhall-lang/tests/type-inference/success/CacheImportsCanonicalize",
-    "dhall-lang/tests/import/success/hashFromCache",
 
 
     ## Type inference
@@ -60,7 +57,7 @@ FAILURES = [
 
 
     ## imports
-    "dhall-lang/tests/import/success/unit/AlternativeHashMismatch",
+    # "dhall-lang/tests/import/success/unit/AlternativeHashMismatch",
 
     # Low priority
 
@@ -68,6 +65,9 @@ FAILURES = [
     # should be implemented in the parser and adding an attribute
     # to RemoteFile.
     "dhall-lang/tests/parser/success/unit/import/urls/emptyQuery",
+    # either urllib doesn't allow this, either we missed something in
+    # the standard. Sould not hurt in the wild.
+    "dhall-lang/tests/parser/success/unit/import/urls/emptyPathSegment",
 
 
     # WONT FIX.

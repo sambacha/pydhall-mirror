@@ -1,4 +1,5 @@
 import os
+from warnings import warn
 from pathlib import Path
 from urllib.parse import urljoin, quote, urlparse, ParseResult as URL
 from urllib import request
@@ -8,9 +9,11 @@ from ..text.base import PlainTextLit, Text
 from ..union import UnionType
 from ..function.app import App
 from ..field import Field
-from .cache import InMemoryCache
+from .cache import TestFSCache, DhallCachePoisoned
 
-CACHE = InMemoryCache()
+
+CACHE = TestFSCache()
+
 
 LOCATION_TYPE = UnionType({
     "Local":       Text(),
@@ -36,17 +39,10 @@ class Import(Term):
     _cbor_idx = 24
 
     def __init__(self, hash, import_mode, **kwargs):
+        if isinstance(hash, bytearray):
+            hash = hash.hex()
         self.hash = hash
         self.import_mode = import_mode
-
-    def copy(self, **kwargs):
-        new = Import(
-            self.hash,
-            self.import_mode
-        )
-        for k, v in kwargs.items():
-            setattr(new, k, v)
-        return new
 
     class Mode:
         Code = 0
@@ -77,6 +73,9 @@ class Import(Term):
             return CACHE[here]
         except KeyError:
             pass
+        except DhallCachePoisoned:
+            # TODO: better message
+            warn(f"Poisoned cache")
         content = here.fetch(origin)
         if self.import_mode == Import.Mode.RawText:
             expr = PlainTextLit(content)
@@ -86,7 +85,8 @@ class Import(Term):
             expr = expr.resolve(*imports)
         _ = expr.type()
         expr = expr.eval().quote()
-        # TODO: check hash if provided
+        if here.hash and not expr.bin_sha256().hexdigest() == here.hash[4:]:
+            raise DhallImportError("Hash mismatch")
         CACHE[here] = expr
         return expr
 
@@ -147,9 +147,10 @@ class RemoteFile(Import):
 
     def cbor_values(self):
         scheme = 1 if self.url.scheme == "https" else 0
+        hash = bytearray.fromhex(self.hash) if self.hash is not None else None
         result = [
             24,
-            self.hash,
+            hash,
             self.import_mode,
             scheme,
             None,
@@ -204,7 +205,8 @@ class EnvVar(Import):
         return new
 
     def cbor_values(self):
-        return [24, self.hash, self.import_mode, 6, self.name]
+        hash = bytearray.fromhex(self.hash) if self.hash is not None else None
+        return [24, hash, self.import_mode, 6, self.name]
 
     def as_location(self):
         return App.build(Field(LOCATION_TYPE, "Environment"), PlainTextLit(self.name))
@@ -312,7 +314,12 @@ class LocalFile(Import):
         if isinstance(base, LocalFile):
             if self.is_absolute() or self.is_relative_to_home():
                 return self
-            return LocalFile(Path(os.path.normpath(get_dir(base.path).joinpath(self.path))), None, 0)
+            return LocalFile(
+                Path(
+                    os.path.normpath(
+                        get_dir(base.path).joinpath(self.path))),
+                    self.hash,
+                    self.import_mode)
         if isinstance(base, RemoteFile):
             # TODO: better exception
             if self.is_absolute() or self.is_relative_to_home():
@@ -333,7 +340,8 @@ class LocalFile(Import):
             parts.pop(0)
         else:
             path_kind = 3
-        return [24, self.hash, self.import_mode, path_kind] + parts
+        hash = bytearray.fromhex(self.hash) if self.hash is not None else None
+        return [24, hash, self.import_mode, path_kind] + parts
 
     @classmethod
     def from_cbor(cls, encoded=None, decoded=None):
@@ -357,7 +365,7 @@ class Missing(Import):
         self.cannon = None
 
     def chain_onto(self, base):
-        return Missing()
+        return self
 
     def fetch(self, origin):
         raise DhallImportError("Cannot resolve missing import")

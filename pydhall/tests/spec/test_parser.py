@@ -53,8 +53,9 @@ def test_parse_success(input, expected):
     with open(expected, "rb") as f:
         assert isinstance(termA, Term)
         bin = termA.cbor()
+        termB_bin = f.read()
         try:
-            assert termA.cbor() == f.read()
+            assert termA.cbor() == termB_bin
         except AssertionError:
             # print("")
             # print(input)
