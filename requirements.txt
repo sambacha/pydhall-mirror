@@ -1,3 +1,3 @@
--e git+https://github.com/lisael/fastidious.git@f71fbe70fded70f1a7c935ec6e5779310957454f#egg=fastidious
+-e git+https://github.com/lisael/fastidious.git@efcc1fad503f351139ea93c2827724d48c04273f#egg=fastidious
 cbor
 cbor2
