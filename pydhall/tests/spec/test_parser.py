@@ -7,6 +7,7 @@ from fastidious.parser_base import ParserError
 
 from pydhall.parser import Dhall
 from pydhall.ast import Term
+from pydhall.ast.import_.base import set_cache_class, InMemoryCache
 
 from . import FAILURES
 from .utils import make_test_file_pairs, collect_test_files
@@ -48,6 +49,7 @@ def make_success_params(root):
 # @pytest.mark.skip()
 @pytest.mark.parametrize("input,expected", make_test_file_pairs(TEST_DATA_ROOT.joinpath("success"), ".dhallb"))
 def test_parse_success(input, expected):
+    set_cache_class(InMemoryCache)
     with open(input) as f:
         termA = Dhall.p_parse(f.read())
     with open(expected, "rb") as f:
@@ -61,12 +63,17 @@ def test_parse_success(input, expected):
             # print(input)
             # print(repr(termA))
             # print(termA.cbor_values())
-            # with open(expected.replace(".dhallb", ".diag")) as f:
+            # with open(str(expected).replace(".dhallb", ".diag")) as f:
             #     print(f.read())
             raise
 
 @pytest.mark.parametrize("input", collect_test_files(TEST_DATA_ROOT.joinpath("failure")))
 def test_parse_failure(input):
+    set_cache_class(InMemoryCache)
     with open(input) as f:
-        with pytest.raises(ParserError):
-            term = Dhall.p_parse(f.read())
+        try:
+            src = f.read()
+        except UnicodeDecodeError:
+            return
+        with pytest.raises(ParserError) as exc:
+            term = Dhall.p_parse(src)

@@ -1,7 +1,9 @@
+from math import inf
+
 from .base import IntegerLitValue, IntegerTypeValue
 from ..base import Callable, Builtin, Value
 from ..natural.base import NaturalTypeValue, NaturalLitValue
-from ..double.base import DoubleLitValue
+from ..double.base import DoubleLitValue, DoubleLit
 from ..text.base import PlainTextLitValue
 
 
@@ -31,6 +33,12 @@ class IntegerToDouble(Builtin):
 
     def __call__(self, x: Value) -> Value:
         if isinstance(x, IntegerLitValue):
+            try:
+                f = float(x)
+            except OverflowError:
+                if x > 0:
+                    return DoubleLitValue(inf)
+                return DoubleLitValue(-inf)
             return DoubleLitValue(x)
 
 

@@ -1,5 +1,6 @@
 """Console script for pydhall."""
 import sys
+import os
 import argparse
 from pathlib import Path
 

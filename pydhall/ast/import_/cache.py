@@ -44,10 +44,10 @@ class InMemoryCache(ExprCache):
         self._cache = {}
 
     def fetch_hash(self, key):
-        return self._fetch(key, mode)
+        return self._fetch(key, None)
 
     def fetch_name(self, key, mode=None):
-        return self._fetch(key, mode, 0)
+        return self._fetch(key, mode)
 
     def save_hash(self, key, value):
         return self._save(key, value, 0)

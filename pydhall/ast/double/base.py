@@ -1,6 +1,7 @@
 import math
 import struct
 from cbor2 import dumps
+from pydhall.utils import cbor_dumps
 
 from ..base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
 from ..text.base import PlainTextLitValue, TextTypeValue
@@ -41,7 +42,7 @@ class DoubleLitValue(float, Value):
         return f"{self.__class__.__name__}({float.__repr__(self)})"
 
     def quote(self, ctx=None, normalize=False):
-        return DoubleLit(self)
+        return DoubleLit(float(self))
 
     def __str__(self):
         if self == math.inf:
@@ -66,6 +67,8 @@ class DoubleLitValue(float, Value):
 class DoubleLit(_AtomicLit):
     _type = DoubleTypeValue
     _cbor_idx = -3
+    MAX = 1.7976931348623157e308
+    MIN = -1.7976931348623157e308
 
     def eval(self, env=None):
         return DoubleLitValue(self.value)
@@ -80,10 +83,10 @@ class DoubleLit(_AtomicLit):
         return str(self.value)
 
     def cbor(self):
-        return dumps(self.value, canonical=True)
+        return cbor_dumps(self.value)
 
     def cbor_values(self):
-        return dumps(self.value, canonical=True)
+        return self.value
 
 
 

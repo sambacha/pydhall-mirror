@@ -9,10 +9,15 @@ from ..text.base import PlainTextLit, Text
 from ..union import UnionType
 from ..function.app import App
 from ..field import Field
-from .cache import TestFSCache, DhallCachePoisoned
+from .cache import TestFSCache, InMemoryCache, DhallCachePoisoned
 
 
-CACHE = TestFSCache()
+CACHE = InMemoryCache()
+
+
+def set_cache_class(cls):
+    global CACHE
+    CACHE = cls()
 
 
 LOCATION_TYPE = UnionType({
@@ -70,7 +75,12 @@ class Import(Term):
         imports = list(ancestors)
         imports.append(here)
         try:
-            return CACHE[here]
+            # TODO: check if dhall-golang checks the hash (possible bug in dhall-golang)
+            expr = CACHE[here]
+            # TODO: hashed import should already be alpha-normalized
+            if here.hash and not expr.eval().quote(normalize=True).bin_sha256().hexdigest() == here.hash[4:]:
+                raise DhallImportError("Hash mismatch")
+            return expr
         except KeyError:
             pass
         except DhallCachePoisoned:

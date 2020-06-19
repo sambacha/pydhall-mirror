@@ -56,10 +56,6 @@ class UnionTypeValue(dict, Value):
 class UnionType(DictTerm):
     _cbor_idx = 11
 
-    # def __init__(self, alternatives, *args, **kwargs):
-    #     Term.__init__(self, *args, **kwargs)
-    #     dict.__init__(self, alternatives)
-
     def __deepcopy__(self, memo):
         return self.__class__(alternatives={k: deepcopy(v) for k, v in self.items()})
 
@@ -283,98 +279,30 @@ class Merge(Term):
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
-        # handlerTypeVal, err := typeWith(ctx, t.Handler)
-        # if err != nil {
-        #     return nil, err
-        # }
         handler_type = self.handler.type(ctx)
 
-        # unionTypeV, err := typeWith(ctx, t.Union)
-        # if err != nil {
-        #     return nil, err
-        # }
         union_type = self.union.type(ctx)
 
-        # handlerType, ok := handlerTypeVal.(RecordType)
-        # if !ok {
-        #     return nil, mkTypeError(mustMergeARecord)
-        # }
         if not isinstance(handler_type, RecordTypeValue):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.MUST_MERGE_A_RECORD)
 
-        # unionType, ok := unionTypeV.(UnionType)
-        # if !ok {
-        #     opt, ok := unionTypeV.(OptionalOf)
-        #     if !ok {
-        #         return nil, mkTypeError(mustMergeUnion)
-        #     }
-        #     unionType = UnionType{"Some": opt.Type, "None": nil}
-        # }
         if not isinstance(union_type, UnionTypeValue):
             if not isinstance(union_type, OptionalOf):
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.MUST_MERGE_UNION)
             union_type = UnionTypeValue({"Some": union_type.type_, "None": None})
 
 
-        # if len(handlerType) > len(unionType) {
-        #     return nil, mkTypeError(unusedHandler)
-        # }
         if len(handler_type) > len(union_type):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.UNUSED_HANDLER)
 
-        # if len(handlerType) == 0 {
-        #     if t.Annotation == nil {
-        #         return nil, mkTypeError(missingMergeType)
-        #     }
-        #     if _, err := typeWith(ctx, t.Annotation); err != nil {
-        #         return nil, err
-        #     }
-        #     return Eval(t.Annotation), nil
-        # }
         if len(handler_type) == 0:
             if self.annotation is None:
                 raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_MERGE_TYPE)
             _ = self.annotation.type(ctx)
             return self.annotation.eval()
 
-        # var result Value
         result = None
-        # for altName, altType := range unionType {
-        #     fieldType, ok := handlerType[altName]
-        #     if !ok {
-        #         return nil, mkTypeError(missingHandler)
-        #     }
-        #     if altType == nil {
-        #         if result == nil {
-        #             result = fieldType
-        #         } else {
-        #             if !AlphaEquivalent(result, fieldType) {
-        #                 return nil, mkTypeError(handlerOutputTypeMismatch(Quote(result), Quote(fieldType)))
-        #             }
-        #         }
-        #     } else {
-        #         pi, ok := fieldType.(Pi)
-        #         if !ok {
-        #             return nil, mkTypeError(handlerNotAFunction)
-        #         }
-        #         if !AlphaEquivalent(altType, pi.Domain) {
-        #             return nil, mkTypeError(handlerInputTypeMismatch(Quote(altType), Quote(pi.Domain)))
-        #         }
-        #         outputType := pi.Codomain(NaturalLit(1))
-        #         outputType2 := pi.Codomain(NaturalLit(2))
-        #         if !AlphaEquivalent(outputType, outputType2) {
-        #             // hacky way of detecting output type depending on input
-        #             return nil, mkTypeError(disallowedHandlerType)
-        #         }
-        #         if result == nil {
-        #             result = outputType
-        #         } else {
-        #             if !AlphaEquivalent(result, outputType) {
-        #                 return nil, mkTypeError(handlerOutputTypeMismatch(Quote(result), Quote(outputType)))
-        #             }
-        #         }
-        #     }
-        # }
+
         for alt_name, alt_type in union_type.items():
             try:
                 field_type = handler_type[alt_name]
@@ -408,17 +336,8 @@ class Merge(Term):
                         raise DhallTypeError(
                             TYPE_ERROR_MESSAGE.HANDLER_OUTPUT_TYPE_MISMATCH % (
                                 result.quote(),
-                                outpute_type.quote()))
+                                output_type.quote()))
 
-        # if t.Annotation != nil {
-        #     if _, err := typeWith(ctx, t.Annotation); err != nil {
-        #         return nil, err
-        #     }
-        #     if !AlphaEquivalent(result, Eval(t.Annotation)) {
-        #         return nil, mkTypeError(annotMismatch(t.Annotation, Quote(result)))
-        #     }
-        # }
-        # return result, nil
         if self.annotation is not None:
             _ = self.annotation.type(ctx)
             if not result @ self.annotation.eval():

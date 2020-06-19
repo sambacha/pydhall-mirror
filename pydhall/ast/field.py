@@ -238,11 +238,11 @@ class Field(Term):
             return record_type[self.field_name]
         union_type = self.record.eval()
         if not isinstance(union_type, UnionTypeValue):
-            raise DhallTypeError(CANT_ACCESS)
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS)
         try:
             alternative_type = union_type[self.field_name]
         except KeyError:
-            raise DhallTypeError(MISSING_CONSTRUCTOR)
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_CONSTRUCTOR)
         if alternative_type is None:
             return union_type
         return PiValue(

@@ -4,6 +4,7 @@ import pytest
 
 from pydhall.parser import Dhall
 from pydhall.ast import Term
+from pydhall.ast.import_.base import set_cache_class, InMemoryCache
 
 from . import FAILURES
 from .utils import make_test_file_pairs
@@ -29,6 +30,7 @@ def make_success_simple_params(root):
 
 @pytest.mark.parametrize("input,expected", make_test_file_pairs(TEST_DATA_ROOT, b_ext=".hash"))
 def test_hash(input, expected):
+    set_cache_class(InMemoryCache)
     with open(input) as f:
         termA = Dhall.p_parse(f.read())
     with open(expected) as f:

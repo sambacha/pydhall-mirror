@@ -2,8 +2,10 @@ from pathlib import Path
 from urllib.parse import urlparse
 from ipaddress import IPv6Address
 from io import StringIO
+import unicodedata
 
 from fastidious import Parser
+from fastidious.fastidious_compiler import FastidiousCompiler
 
 from pydhall.ast.comment import BlockComment, LineComment
 from pydhall.ast import (
@@ -51,6 +53,7 @@ from pydhall.ast import (
 
 
 class Dhall(Parser):
+    # p_compiler = FastidiousCompiler(gen_code=False)
     __grammar__ = r"""
     DhallFile ← e:CompleteExpression EOF { @e }
 
@@ -58,26 +61,7 @@ class Dhall(Parser):
 
     EOL <- "\n" / "\r\n" {;"\n"}
 
-    # fastidious doesn't play well with unicode ranges. Fallback to
-    # regexps
-    ValidNonAscii <-
-          ~"[\\u0080-\\uD7FF]"
-        / ~"[\\uE000-\\uFFFD]"
-        / ~"[\\U00010000-\\U0001FFFD]"
-        / ~"[\\U00020000-\\U0002FFFD]"
-        / ~"[\\U00030000-\\U0003FFFD]"
-        / ~"[\\U00040000-\\U0004FFFD]"
-        / ~"[\\U00050000-\\U0005FFFD]"
-        / ~"[\\U00060000-\\U0006FFFD]"
-        / ~"[\\U00070000-\\U0007FFFD]"
-        / ~"[\\U00080000-\\U0008FFFD]"
-        / ~"[\\U00090000-\\U0009FFFD]"
-        / ~"[\\U000A0000-\\U000AFFFD]"
-        / ~"[\\U000B0000-\\U000BFFFD]"
-        / ~"[\\U000C0000-\\U000CFFFD]"
-        / ~"[\\U000D0000-\\U000DFFFD]"
-        / ~"[\\U000E0000-\\U000EFFFD]"
-        / ~"[\\U000F0000-\\U000FFFFD]"
+    ValidNonAscii <- [\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0001FFFD\U00020000-\U0002FFFD\U00030000-\U0003FFFD\U00040000-\U0004FFFD\U00050000-\U0005FFFD\U00060000-\U0006FFFD\U00070000-\U0007FFFD\U00080000-\U0008FFFD\U00090000-\U0009FFFD\U000A0000-\U000AFFFD\U000B0000-\U000BFFFD\U000C0000-\U000CFFFD\U000D0000-\U000DFFFD\U000E0000-\U000EFFFD\U000F0000-\U000FFFFD]
       # not supported in python regexps. TODO: Fix fastidious.
       # / [\U000100000-\U00010FFFD]
 
@@ -100,7 +84,7 @@ class Dhall(Parser):
         / BlockComment BlockCommentContinue
         / BlockCommentChar+ BlockCommentContinue
 
-    NotEOL <- ~"[\\x20-\\x7f]" / ValidNonAscii / "\t"
+    NotEOL <- [\x20-\x7f\t] / ValidNonAscii
 
     LineComment <- "--" content:(NotEOL*) EOL
 
@@ -112,7 +96,7 @@ class Dhall(Parser):
 
     Digit <- [0-9]
 
-    HexDig <- Digit / [a-f]i
+    HexDig <- Digit / [a-fA-F]
 
     SimpleLabelFirstChar <- [A-Za-z_]
     SimpleLabelNextChar <- [A-Za-z0-9_/-]
@@ -123,7 +107,7 @@ class Dhall(Parser):
         { p_flatten }
 
     QuotedLabelChar <- ~"[\\x20-\\x5f\\x61-\\x7e]"
-    QuotedLabel <- QuotedLabelChar+ { p_flatten }
+    QuotedLabel <- QuotedLabelChar* { p_flatten }
 
     Label <- "`" label:QuotedLabel "`" / label:SimpleLabel { @label }
 
@@ -180,9 +164,9 @@ class Dhall(Parser):
 
     SingleQuoteChar <-
          ~"[\\x20-\\x7f]"
-       / ValidNonAscii
        / '\t'
        / EOL
+       / ValidNonAscii
 
     SingleQuoteLiteral ← "''" EOL content:SingleQuoteContinue { on_SingleQuoteLiteral }
 
@@ -237,8 +221,6 @@ class Dhall(Parser):
       / "List/last"
       / "List/indexed"
       / "List/reverse"
-      / "Optional/fold"
-      / "Optional/build"
       / "Text/show"
       / "Bool"
       / "True"
@@ -311,7 +293,7 @@ class Dhall(Parser):
 
     UnquotedPathComponent <- PathCharacter+ { p_flatten }
 
-    QuotedPathComponent <- QuotedPathCharacter+ { p_flatten }
+    QuotedPathComponent <- QuotedPathCharacter+ { on_QuotedPathComponent }
 
     PathComponent <- '/' c:UnquotedPathComponent
                   / '/' '"' c:QuotedPathComponent '"' { @c }
@@ -327,9 +309,9 @@ class Dhall(Parser):
 
     Scheme <- "http" 's'?
 
-    HttpRaw <- Scheme "://" Authority UrlPath ( '?' Query )?
+    HttpRaw <- Scheme "://" Authority PathAbEmpty ( '?' Query )?
 
-    UrlPath <- (PathComponent / '/' Segment)*
+    PathAbEmpty <- ('/' Segment)*
 
     Authority <- (Userinfo '@')? Host (':' Port)?
 
@@ -341,7 +323,7 @@ class Dhall(Parser):
 
     IPLiteral <- '[' IPv6address ']'
 
-    IPv6address <- (HexDig)* ':' (HexDig / ':' / '.')*
+    IPv6address <- (HexDig)* ':' (HexDig / ':' / '.')* { on_IPv6address }
 
     RegName <- (Unreserved / PctEncoded / SubDelims)*
 
@@ -359,37 +341,18 @@ class Dhall(Parser):
 
     Http ← u:HttpRaw using_clause:( _ Using _1 ImportExpression)? { on_Http }
 
-    Env ← "env:" v:(BashEnvironmentVariable / PosixEnvironmentVariable) { @v }
+    Env ← "env:" v:(BashEnvironmentVariable / PosixEnvironmentVariable) { on_Env }
 
-    BashEnvironmentVariable ← [A-Za-z_][A-Za-z0-9_]* { on_BashEnvironmentVariable }
+    BashEnvironmentVariable ← [A-Za-z_][A-Za-z0-9_]*
 
     PosixEnvironmentVariable ← '"' v:PosixEnvironmentVariableContent '"' { @v }
 
     PosixEnvironmentVariableContent ← v:PosixEnvironmentVariableCharacter+
-    # {
-    #   var b strings.Builder
-    #   for _, c := range v.([]interface{}) {
-    #     _, err := b.Write(c.([]byte))
-    #     if err != nil { return nil, err }
-    #   }
-    #   return EnvVar(b.String()), nil
-    # }
 
     PosixEnvironmentVariableCharacter ←
-        [a-z] # TODO
-    #       `\"` { return []byte{0x22}, nil }
-    #     / `\\` { return []byte{0x5c}, nil }
-    #     / `\a` { return []byte{0x07}, nil }
-    #     / `\b` { return []byte{0x08}, nil }
-    #     / `\f` { return []byte{0x0c}, nil }
-    #     / `\n` { return []byte{0x0a}, nil }
-    #     / `\r` { return []byte{0x0d}, nil }
-    #     / `\t` { return []byte{0x09}, nil }
-    #     / `\v` { return []byte{0x0b}, nil }
-    #     / [\x20-\x21]
-    #     / [\x23-\x3c]
-    #     / [\x3e-\x5b]
-    #     / [\x5d-\x7e]
+        [\x20-\x21\x23-\x3c\x3e-\x5b\x5d-\x7e] / PosixEnvironmentVariableEscape
+
+    PosixEnvironmentVariableEscape <- '\\' c:["\\abfnrtv] { on_PosixEnvironmentVariableEscape }
 
     ImportType ← Missing / Local / Http / Env
 
@@ -402,14 +365,8 @@ class Dhall(Parser):
                  HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
                  HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
                  HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
-    # {
-    #     out := make([]byte, sha256.Size)
-    #     _, err := hex.Decode(out, c.text)
-    #     if err != nil { return nil, err }
-    #     return out, nil
-    # }
+
     Hash <- "sha256:" val:HashValue
-    # { return append([]byte{0x12,0x20}, val.([]byte)...), nil }
 
     ImportHashed ← i:ImportType h:(_1 Hash)? { on_ImportHashed }
 
@@ -425,33 +382,6 @@ class Dhall(Parser):
     LetBinding ←
         Let _1 label:NonreservedLabel _ a:(Annotation _)? '=' _ v:Expression _ { on_LetBinding }
 
-    # Expression ←
-    #       Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _ Arrow _ body:Expression {
-    #           return Lambda{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
-    #       }
-    #     / If _1 cond:Expression _ Then _1 t:Expression _ Else _1 f:Expression {
-    #           return If{cond.(Term),t.(Term),f.(Term)},nil
-    #       }
-    #     / bindings:LetBinding+ In _1 b:Expression {
-    #         bs := make([]Binding, len(bindings.([]interface{})))
-    #         for i, binding := range bindings.([]interface{}) {
-    #             bs[i] = binding.(Binding)
-    #         }
-    #         return NewLet(b.(Term), bs...), nil
-    #       }
-    #     / Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _ Arrow _ body:Expression {
-    #           return Pi{Label:label.(string), Type:t.(Term), Body: body.(Term)}, nil
-    #       }
-    #     / o:OperatorExpression _ Arrow _ e:Expression { return NewAnonPi(o.(Term),e.(Term)), nil }
-    #     / WithExpression
-    #     / Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression {
-    #           return Merge{Handler:h.(Term), Union:u.(Term), Annotation:a.(Term)}, nil
-    #       }
-    #     / EmptyList
-    #     / toMap _1 e:ImportExpression _ ':' _1 t:ApplicationExpression { return ToMap{e.(Term), t.(Term)}, nil }
-    #     / assert _ ':' _1 a:Expression { return Assert{Annotation: a.(Term)}, nil }
-    #     / AnnotatedExpression
-
     LambdaExpression <-
         Lambda _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')' _
         Arrow _ body:Expression { on_LambdaExpression }
@@ -461,7 +391,9 @@ class Dhall(Parser):
         Forall _ '(' _ label:NonreservedLabel _ ':' _1 t:Expression _ ')'
         _ Arrow _ body:Expression { on_ForallExpression }
     AnonPiExpression <- o:OperatorExpression _ Arrow _ e:Expression { on_AnonPiExpression }
-    MergeExpression <-  Merge _1 h:ImportExpression _1 u:ImportExpression _ ':' _1 a:ApplicationExpression { on_MergeExpr }
+    MergeExpression <-
+        Merge _1 h:ImportExpression _1 u:ImportExpression _
+        ':' _1 a:ApplicationExpression { on_MergeExpr }
     AnnotatedToMap <- toMap _1 e:ImportExpression _ ':' _1 t:ApplicationExpression { on_toMapExpr }
     AssertExpression <- assert_ _ ':' _1 a:Expression { on_AssertExpression }
     Expression <-
@@ -587,15 +519,6 @@ class Dhall(Parser):
     MoreList ← ',' _ e:Expression _ { @e }
 
     NonEmptyListLiteral ← '[' _ (',' _)? first:Expression _ rest:MoreList* ']' { on_NonEmptyList }
-    # {
-    #           exprs := rest.([]interface{})
-    #           content := make(NonEmptyList, len(exprs)+1)
-    #           content[0] = first.(Term)
-    #           for i, expr := range exprs {
-    #               content[i+1] = expr.(Term)
-    #           }
-    #           return content, nil
-    #       }
 
     CompleteExpression <- _ e:Expression _ { @e }
     """
@@ -609,7 +532,12 @@ class Dhall(Parser):
 
     def on_UnicodeEscape(self, _, digits):
         digits = self.p_flatten(digits)
-        return bytearray.fromhex(digits).decode("utf-8")
+        ord_ = int(digits, 16)
+        if ord_ & 65534 == 65534:  # 0FFFE mask denotes unicode non-characters
+            self.p_parse_error(f"can't encode character '\\u{digits}': non-character")
+        if unicodedata.category(chr(ord_)) == "Cs":
+            self.p_parse_error(f"can't encode character '\\u{digits}': surrogates not allowed")
+        return chr(ord_)
 
     def on_DoubleQuoteEscaped(self, result):
         if result in r'"$\/':
@@ -656,21 +584,7 @@ class Dhall(Parser):
         return urlparse(self.p_flatten(result))
 
     def on_IPv6address(self, result):
-        # validate and normalize the address
-        return str(IPv6Address(self.p_flatten(result)))
-
-    def on_UrlPath(self, segments):
-        result = []
-        for s in self.p_flatten_list(segments):
-            if s == "/":
-                result.append("")
-            else:
-                result.append(s)
-
-        result = "/".join(result)
-        if not result.startswith("/"):
-            return "/" + result
-        return result
+        return self.p_flatten(result)
 
     def on_EscapedInterpolation(self, _):
         return "${"
@@ -714,7 +628,7 @@ class Dhall(Parser):
                 suffix.seek(0)
                 suffix.truncate()
             else:
-                assert False
+                assert False  # pragma: no cover
         return out_chunks, suffix.getvalue()
 
     def on_DoubleQuoteLiteral(self, _, chunks):
@@ -767,26 +681,12 @@ class Dhall(Parser):
             chunks = [Chunk(*c) for c in chunks]
         return self.emit(TextLit, chunks, suffix)
 
-    # {
-    #     var str strings.Builder
-    #     var outChunks Chunks
-    #     chunk, ok := content.([]interface{})
-    #     for ; ok; chunk, ok = chunk[1].([]interface{}) {
-    #         switch e := chunk[0].(type) {
-    #         case []byte:
-    #             str.Write(e)
-    #         case Term:
-    #                 outChunks = append(outChunks, Chunk{str.String(), e})
-    #                 str.Reset()
-    #         default:
-    #             return nil, errors.New("unimplemented")
-    #         }
-    #     }
-    #     return removeLeadingCommonIndent(TextLit{Chunks: outChunks, Suffix: str.String()}), nil
-    # }
-
     def on_NumericDoubleLiteral(self, val):
-        return self.emit(DoubleLit, float(self.p_flatten(val)))
+        val = float(self.p_flatten(val))
+        if DoubleLit.MAX >= val >= DoubleLit.MIN:
+            return self.emit(DoubleLit, val)
+        else:
+            self.p_parse_error("Literal double out of bounds")
 
     def on_DoubleLiteral(self, _, num=None, inf=None, minf=None, nan=None):
         if num is not self.NoMatch:
@@ -797,22 +697,20 @@ class Dhall(Parser):
             return self.emit(DoubleLit, float("-inf"))
         if nan is not self.NoMatch:
             return self.emit(DoubleLit, float("nan"))
-        assert False
+        assert False  # pragma: no cover
 
     def on_IntegerLiteral(self, _, n=None, mn=None):
         if n is not self.NoMatch:
             return self.emit(IntegerLit, n[1].value)
         if mn is not self.NoMatch:
             return self.emit(IntegerLit, -(mn[1].value))
-        assert False
+        assert False  # pragma: no cover
 
-    def on_BashEnvironmentVariable(self, v):
+    def on_Env(self, _, v):
         return [EnvVar, self.p_flatten(v)]
 
     def on_LetBinding(self, _, label, a, v):
         if not a:
-            a = None
-        elif a is self.NoMatch:
             a = None
         else:
             a = a[0]
@@ -913,7 +811,7 @@ class Dhall(Parser):
         content = { first[0]: first[4] }
         for f in rest:
             if f[0] in content:
-                raise ValueError("Duplicate Field")
+                self.p_parse_error("Duplicate Field `%s`" % f)
             content[f[0]] = f[4]
         return self.emit(RecordType, content)
 
@@ -951,7 +849,7 @@ class Dhall(Parser):
             type = type[3] if type else None
             name = e[0]
             if name in alternatives:
-                raise ValueError("Duplicate alternative %s in union" % name)
+                self.p_parse_error("Duplicate alternative `%s` in union" % name)
             alternatives[name] = type
         add_entry(first)
         for r in rest:
@@ -970,7 +868,7 @@ class Dhall(Parser):
             if isinstance(selector, Term):
                 e = ProjectType(e, selector)
                 continue
-            assert False
+            assert False  # pragma: no cover
         return e
 
     def on_Labels(self, _, optclauses):
@@ -995,9 +893,7 @@ class Dhall(Parser):
             })
         )
 
-    def on_WithExpression(self, _, first, rest=None):
-        if not rest:
-            return first
+    def on_WithExpression(self, _, first, rest):
         out = first
         for r in rest:
             out = self.desugar_with(out, r[3][0], r[3][4])
@@ -1013,3 +909,24 @@ class Dhall(Parser):
 
     def on_Missing(self, _):
         return [Missing]
+
+    def on_QuotedPathComponent(self, value):
+        "QuotedPathComponent <- QuotedPathCharacter+"
+        # TODO: check the specs
+        return self.p_flatten(value).replace("?", "%3F")
+
+    _char_escape_map = {
+        '"': '"',
+        '\\': "\\",
+        'a': '\a',
+        'b': '\b',
+        'f': '\f',
+        'n': '\n',
+        'r': '\r',
+        't': '\t',
+        'v': '\v'
+    }
+
+    def on_PosixEnvironmentVariableEscape(self, _, c):
+        """PosixEnvironmentVariableEscape <- '\\' ["\\abfnrtv] { on_PosixEnvironmentVariableEscape }"""
+        return self._char_escape_map[c]
