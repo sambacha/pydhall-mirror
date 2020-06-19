@@ -41,11 +41,9 @@ sha256:4caf97e8c445d4d4b5c5b992973e098ed4ae88a355915f5a59db640a589bc9cb
 ### Done
 
 1. Global code design from parsing to SHA256 hash
-2. Parsing of the 16.0.0 grammar
-   - Missing:
-      - [ ] http imports
-      - [ ] using
+2. Parsing of the 17.0.0 grammar
 3. Terms are created out of the parsed expression
+4. Import resolution with local caching
 4. Type checking
 5. Evaluation
 6. Quote values
@@ -53,22 +51,17 @@ sha256:4caf97e8c445d4d4b5c5b992973e098ed4ae88a355915f5a59db640a589bc9cb
 
 Most of the standard tests pass, except [these](https://gitlab.com/lisael/pydhall/-/blob/master/pydhall/tests/spec/__init__.py).
 
-Pydhall can import, normalize and hash the Prelude, except for one assert in `Text/show`
-and a broken implementation of IntegerToDouble (and hence a broken sha256 for this
-package).
-
 ### TODO
 
-1. Binary decoding (WIP)
-1. HTTP import
-2. Content-addressable FS cache
-3. Pythonic interface
-4. Documentation
+1. Pythonic interface
+2. Documentation
+3. Packaging
+
 
 ## Installation - Development
 
 The project is not fully packaged at the moment. For experimentations and
-developements, use local package install in a virtualenv. Get in touch
+developements, use local a package install in a virtualenv. Get in touch
 with me opening an issue, or on [Dhall discourse](https://discourse.dhall-lang.org/)
 if you need detailed instrucions.
 

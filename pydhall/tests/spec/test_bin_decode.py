@@ -10,7 +10,7 @@ from . import FAILURES
 from .utils import make_test_file_pairs
 
 
-TEST_DATA_ROOT = Path("dhall-lang/tests/semantic-hash/")
+TEST_DATA_ROOT = Path("dhall-lang/tests/binary-decode/")
 
 
 def make_success_simple_params(root):
@@ -28,12 +28,13 @@ def make_success_simple_params(root):
 
 #     assert termA.eval().quote() == termB.eval().quote()
 
-@pytest.mark.parametrize("input,expected", make_test_file_pairs(TEST_DATA_ROOT, b_ext=".hash"))
-def test_hash(input, expected):
+@pytest.mark.parametrize("input,expected", make_test_file_pairs(TEST_DATA_ROOT.joinpath("success"), a_ext=".dhallb"))
+def test_bin_decode(input, expected):
     set_cache_class(InMemoryCache)
-    with open(input) as f:
-        termA = Dhall.p_parse(f.read())
+    with open(input, "rb") as f:
+        binA = f.read()
     with open(expected) as f:
-        hash = f.read().strip()
+        termB = Dhall.p_parse(f.read())
 
-    assert termA.resolve(input).eval().quote(normalize=True).sha256() == hash
+    termA = Term.from_cbor(binA)
+    assert termA == termB

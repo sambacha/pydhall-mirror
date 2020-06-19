@@ -232,8 +232,11 @@ class Term(Node):
             return Term._cbor_indexes[-3](decoded)  # DoubleLit
         assert False
 
+    def bin_sha256(self):
+        return sha256(self.cbor())
+
     def sha256(self):
-        sha = sha256(self.cbor()).hexdigest()
+        sha = self.bin_sha256().hexdigest()
         return f"sha256:{sha}"
 
     def subst(self, name: str, replacement: "Term", level: int = 0):

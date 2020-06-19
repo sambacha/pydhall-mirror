@@ -82,7 +82,7 @@ def test_label(input, expected):
 
 
 @pytest.mark.parametrize("input", [
-    ("if",)
+    "if"
 ])
 def test_label_fail(input):
     p = Dhall(input)

@@ -82,3 +82,11 @@ tried to project a %s but the field had type %s"""
     MAP_TYPE_MISMATCH = """❰toMap❱ result type doesn't match annotation
 
 map had type %s but was annotated %s"""
+    DUPLICATE_PROJECT_FIELD = "Duplicate field ❰%s❱ in projection expression"
+    HANDLER_OUTPUT_TYPE_MISMATCH = """Handlers should have the same output type
+
+Saw handlers of types %s and %s"""
+    HANDLER_INPUT_TYPE_MISMATCH = """Wrong handler input type
+
+Expected input type %s but saw %s"""
+    MISSING_CONSTRUCTOR = "Missing constructor"
