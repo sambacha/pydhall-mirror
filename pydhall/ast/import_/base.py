@@ -135,7 +135,9 @@ class RemoteFile(Import):
 
     def copy(self, **kwargs):
         new = RemoteFile(
-            self.url
+            self.url,
+            self.hash,
+            self.import_mode,
         )
         for k, v in kwargs.items():
             setattr(new, k, v)
@@ -208,7 +210,9 @@ class EnvVar(Import):
 
     def copy(self, **kwargs):
         new = EnvVar(
-            self.name
+            self.name,
+            self.hash,
+            self.import_mode,
         )
         for k, v in kwargs.items():
             setattr(new, k, v)
@@ -270,7 +274,9 @@ class LocalFile(Import):
 
     def copy(self, **kwargs):
         new = LocalFile(
-            self.path
+            self.path,
+            self.hash,
+            self.import_mode,
         )
         for k, v in kwargs.items():
             setattr(new, k, v)
