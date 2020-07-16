@@ -33,6 +33,9 @@ class ListOf(Value):
     def copy(self):
         return ListOf(self.type_.copy())
 
+    def __repr__(self):
+        return f"ListOf({repr(self.type_)})"
+
 
 class NonEmptyListValue(Value):
 

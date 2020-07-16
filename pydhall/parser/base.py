@@ -36,6 +36,7 @@ from pydhall.ast import (
     Pi,
     Project,
     ProjectType,
+    PydhallSchema,
     RecordLit,
     RecordType,
     RecordMergeOp,
@@ -62,7 +63,7 @@ class Dhall(Parser):
     EOL <- "\n" / "\r\n" {;"\n"}
 
     ValidNonAscii <- [\u0080-\uD7FF\uE000-\uFFFD\U00010000-\U0001FFFD\U00020000-\U0002FFFD\U00030000-\U0003FFFD\U00040000-\U0004FFFD\U00050000-\U0005FFFD\U00060000-\U0006FFFD\U00070000-\U0007FFFD\U00080000-\U0008FFFD\U00090000-\U0009FFFD\U000A0000-\U000AFFFD\U000B0000-\U000BFFFD\U000C0000-\U000CFFFD\U000D0000-\U000DFFFD\U000E0000-\U000EFFFD\U000F0000-\U000FFFFD]
-      # not supported in python regexps. TODO: Fix fastidious.
+      # not supported in python unicode. TODO: ...errrm. something?
       # / [\U000100000-\U00010FFFD]
 
     BlockComment <- "{-" BlockCommentContinue
@@ -354,9 +355,8 @@ class Dhall(Parser):
 
     PosixEnvironmentVariableEscape <- '\\' c:["\\abfnrtv] { on_PosixEnvironmentVariableEscape }
 
-    ImportType ← Missing / Local / Http / Env
+    ImportType ← Missing / Local / Http / Env / PydhallSchema
 
-    # // ugh, there seems to be no fixed-repetition operator in pigeon :(
     HashValue <- HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
                  HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
                  HexDig HexDig HexDig HexDig HexDig HexDig HexDig HexDig
@@ -373,7 +373,7 @@ class Dhall(Parser):
     ImportAsText <- i:ImportHashed _ As _1 Text { on_ImportAsText }
     ImportAsLocation <- i:ImportHashed _ As _1 Location { on_ImportAsLocation }
     SimpleImport <- i:ImportHashed { on_SimpleImport }
-    Import <-
+    Import ^ <-
         ImportAsText
         / ImportAsLocation
         / SimpleImport
@@ -396,7 +396,7 @@ class Dhall(Parser):
         ':' _1 a:ApplicationExpression { on_MergeExpr }
     AnnotatedToMap <- toMap _1 e:ImportExpression _ ':' _1 t:ApplicationExpression { on_toMapExpr }
     AssertExpression <- assert_ _ ':' _1 a:Expression { on_AssertExpression }
-    Expression <-
+    Expression ^ <-
         LambdaExpression
         / IfExpression
         / Bindings
@@ -468,7 +468,7 @@ class Dhall(Parser):
 
     Selector ← AnyLabel / Labels / TypeSelector
 
-    Labels ← '{' _ optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* )? '}' { on_Labels }
+    Labels ← '{' _ (',' _)? optclauses:( AnyLabelOrSome _ (',' _ AnyLabelOrSome _ )* (',' _)? )? '}' { on_Labels }
 
     TypeSelector ← '(' _ e:Expression _ ')' { @e }
 
@@ -486,7 +486,7 @@ class Dhall(Parser):
         / Identifier
         / Paren
 
-    EmptyRecord <- "=" { on_EmptyRecord }
+    EmptyRecord <- "=" (',' _ )? { on_EmptyRecord }
     # '=' { return RecordLit{}, nil }
     EmptyRecordType <- "" { on_EmptyRecordType }
     # "" { return RecordType{}, nil }
@@ -497,11 +497,11 @@ class Dhall(Parser):
         / EmptyRecordType
 
     MoreRecordType ← _ ',' _ f:RecordTypeEntry { @f }
-    NonEmptyRecordType ← first:RecordTypeEntry rest:MoreRecordType* { on_NonEmptyRecordType }
+    NonEmptyRecordType ← first:RecordTypeEntry rest:MoreRecordType* (',' _)? { on_NonEmptyRecordType }
     RecordTypeEntry ← name:AnyLabelOrSome _ ':' _1 expr:Expression
 
     MoreRecordLiteral ← _ ',' _ f:RecordLiteralEntry { @f }
-    NonEmptyRecordLiteral ← first:RecordLiteralEntry rest:MoreRecordLiteral* { on_NonEmptyRecordLiteral }
+    NonEmptyRecordLiteral ← first:RecordLiteralEntry rest:MoreRecordLiteral* (',' _)? { on_NonEmptyRecordLiteral }
 
     RecordLiteralEntry ← name:AnyLabelOrSome val:(RecordLiteralNormalEntry / RecordLiteralPunnedEntry) { on_RecordLiteralEntry }
 
@@ -512,15 +512,21 @@ class Dhall(Parser):
 
     EmptyUnionType ← "" { on_EmptyUnionType }
 
-    NonEmptyUnionType ← first:UnionTypeEntry rest:(_ '|' _ UnionTypeEntry)* { on_NonEmptyUnionType }
+    NonEmptyUnionType ← first:UnionTypeEntry rest:(_ '|' _ UnionTypeEntry)* (_ '|' _)? { on_NonEmptyUnionType }
 
     UnionTypeEntry ← AnyLabelOrSome (_ ':' _1 Expression)?
 
     MoreList ← ',' _ e:Expression _ { @e }
 
-    NonEmptyListLiteral ← '[' _ (',' _)? first:Expression _ rest:MoreList* ']' { on_NonEmptyList }
+    NonEmptyListLiteral ← '[' _ (',' _)? first:Expression _ rest:MoreList* (',' _)? ']' { on_NonEmptyList }
 
     CompleteExpression <- _ e:Expression _ { @e }
+
+    # Pydhall Extensions
+    PydhallSchema <- "pydhall+schema:" cp:PythonClassPath { on_PydhallSchema }
+    PythonClassPath <- mod:PythonModule "::" obj:PythonIdentifier
+    PythonModule <- PythonIdentifier ("." PythonIdentifier)* { p_flatten }
+    PythonIdentifier <- [_a-zA-Z][_a-zA-Z0-9]* { p_flatten }
     """
 
     def __init__(self, *args, name="<string>", **kwargs):
@@ -598,6 +604,9 @@ class Dhall(Parser):
         return self.emit(Annot, e, a[1])
 
     def on_Variable(self, _, name, index=None):
+        # if name in Builtin._by_name:
+        #     assert index == None
+        #     return self.emit(Builtin, name)
         if not index:
             index = 0
         return self.emit(Var, name, index)
@@ -706,9 +715,6 @@ class Dhall(Parser):
             return self.emit(IntegerLit, -(mn[1].value))
         assert False  # pragma: no cover
 
-    def on_Env(self, _, v):
-        return [EnvVar, self.p_flatten(v)]
-
     def on_LetBinding(self, _, label, a, v):
         if not a:
             a = None
@@ -748,6 +754,12 @@ class Dhall(Parser):
     def on_EmptyList(self, _, a):
         return self.emit(EmptyList, a)
 
+    def on_Env(self, _, v):
+        return [EnvVar, self.p_flatten(v)]
+
+    def on_PydhallSchema(self, _, cp):
+        return [PydhallSchema, cp[0], cp[2]]
+
     def on_ParentPath(self, _, p):
         return [LocalFile, Path("..").joinpath(p)]
 
@@ -759,6 +771,14 @@ class Dhall(Parser):
 
     def on_AbsolutePath(self, _, p):
         return [LocalFile, Path("/").joinpath(p)]
+
+    def on_Http(self, _, u, using_clause=None):
+        if using_clause:
+            self.p_parse_error("pydhall doesn't support using clause")
+        return [RemoteFile, u]
+
+    def on_Missing(self, _):
+        return [Missing]
 
     def on_ImportHashed(self, _, i, h=None):
         # import ipdb; ipdb.set_trace()
@@ -901,14 +921,6 @@ class Dhall(Parser):
 
     def on_FieldPath(self, _, first, rest):
         return [i for i in self.p_flatten_list([first, rest]) if i != "."]
-
-    def on_Http(self, _, u, using_clause=None):
-        if using_clause:
-            self.p_parse_error("pydhall doesn't support using clause")
-        return [RemoteFile, u]
-
-    def on_Missing(self, _):
-        return [Missing]
 
     def on_QuotedPathComponent(self, value):
         "QuotedPathComponent <- QuotedPathCharacter+"

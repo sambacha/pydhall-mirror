@@ -23,7 +23,7 @@ from .boolean.ops import *
 from .function import Lambda, Pi
 from .function.pi import PiValue
 from .function.app import App
-from .import_.base import Import, EnvVar, LocalFile, RemoteFile, Missing
+from .import_.base import Import, EnvVar, LocalFile, RemoteFile, Missing, PydhallSchema
 from .import_.ops import ImportAltOp
 
 
@@ -251,10 +251,17 @@ class ToMapValue(Value):
     def quote(self, ctx: QuoteContext = None, normalize: bool = False) -> Term:
         ctx = ctx if ctx is not None else QuoteContext()
         if self.type_ is not None:
-            type_ = self.type.quote(ctx, normalize)
+            type_ = self.type_.quote(ctx, normalize)
         else:
             type_ = None
         return ToMap(self.record.quote(ctx, normalize), type_)
+
+    def copy(self):
+        if self.type_ is not None:
+            type = self.type_.copy()
+        else:
+            type = None
+        return ToMapValue(self.record.copy(), type)
     
 
 class ToMap(Term):
@@ -306,14 +313,18 @@ class ToMap(Term):
                 for name in field_names]
             return NonEmptyListValue(result)
 
-        return ToMapValue(record, self.type_.eval(env))
+        if self.type_ is not None:
+            type = self.type_.eval(env)
+        else:
+            type = None
+        return ToMapValue(record, type)
 
     def type(self, ctx=None):
         ctx = ctx if ctx is not None else TypeContext()
 
         record_type = self.record.type(ctx)
         if not isinstance(record_type, RecordTypeValue):
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS)
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS + f": `{repr(self.record)}")
 
         if len(record_type) == 0:
             if self.type_ is None:

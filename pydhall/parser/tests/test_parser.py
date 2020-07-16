@@ -35,6 +35,12 @@ def test_char_classes():
     result = p.ValidNonAscii()
     assert result == "Ā"
 
+def test_pydhall_schema():
+    p = Dhall("pydhall+schema:my.module::MyClass")
+    result = p.PydhallSchema()
+    assert result[1] == "my.module"
+    assert result[2] == "MyClass"
+
 
 def test_line_comment():
     p = Dhall("-- hello\nlet foo = 1 in foo")

@@ -1,15 +1,12 @@
 import math
-import struct
-from cbor2 import dumps
 from pydhall.utils import cbor_dumps
 
-from ..base import _AtomicLit, BuiltinValue, Builtin, Value, Callable
-from ..text.base import PlainTextLitValue, TextTypeValue
+from ..base import _AtomicLit, BuiltinValue, Builtin, Value
 
 from ..universe import TypeValue
 
 
-## Type
+# # Type
 DoubleTypeValue = BuiltinValue("Double")
 
 
@@ -18,16 +15,15 @@ class Double(Builtin):
     _eval = DoubleTypeValue
 
 
-## Literal
+# # Literal
 class DoubleLitValue(float, Value):
-
     def __new__(cls, n):
         try:
             return float.__new__(cls, n)
         except OverflowError:
             if n > 0:
                 return float.__new__(cls, math.inf)
-            return float.__new__(cls, - math.inf)
+            return float.__new__(cls, -math.inf)
 
     def __add__(self, other):
         raise TypeError()
@@ -47,7 +43,7 @@ class DoubleLitValue(float, Value):
     def __str__(self):
         if self == math.inf:
             return "Infinity"
-        if self  == -math.inf:
+        if self == -math.inf:
             return "-Infinity"
         if math.isnan(self):
             return "NaN"
@@ -87,7 +83,3 @@ class DoubleLit(_AtomicLit):
 
     def cbor_values(self):
         return self.value
-
-
-
-
