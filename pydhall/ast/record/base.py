@@ -138,7 +138,7 @@ class RecordType(DictTerm):
         for v in self.values():
             field_universe = v.type(ctx)
             if not isinstance(field_universe, UniverseValue):
-                raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_FIELD_TYPE)
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.INVALID_FIELD_TYPE + f": {repr(field_universe)}")
             if universe < field_universe:
                 universe = field_universe
         return universe

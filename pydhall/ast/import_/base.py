@@ -3,6 +3,7 @@ from warnings import warn
 from pathlib import Path
 from urllib.parse import urljoin, quote, urlparse, ParseResult as URL
 from urllib import request
+from importlib import import_module
 
 from ..base import Term, Node
 from ..text.base import PlainTextLit, Text
@@ -89,11 +90,16 @@ class Import(Term):
         content = here.fetch(origin)
         if self.import_mode == Import.Mode.RawText:
             expr = PlainTextLit(content)
+        elif isinstance(content, Term):
+            expr = content
         else:
             from pydhall.parser import parse
             expr = parse(content)
             expr = expr.resolve(*imports)
+        # type check the expression
         _ = expr.type()
+        # beta-normalize the expression
+        # TODO: Should we alpha-normalize here ?
         expr = expr.eval().quote()
         if here.hash and not expr.bin_sha256().hexdigest() == here.hash[4:]:
             raise DhallImportError("Hash mismatch")
@@ -105,6 +111,65 @@ class Import(Term):
         assert encoded is None
         assert decoded[0] == cls._cbor_idx
         return _CBOR_SCHEMES[decoded[3]].from_cbor(decoded=decoded)
+
+
+class PydhallSchema(Import):
+    __slots__ = ['module', 'cls']
+    _cbor_idx = None
+    scheme = "pydhall+schema"
+
+    def __init__(self, module, cls, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.module = module
+        self.cls = cls
+        self.cannon = f"{self.scheme}:{self.module}::{self.cls}"
+
+    def copy(self, **kwargs):
+        new = PydhallSchema(
+            self.module,
+            self.cls,
+            self.hash,
+            self.import_mode,
+        )
+        for k, v in kwargs.items():
+            setattr(new, k, v)
+        return new
+
+    def cbor_values(self):
+        hash = bytearray.fromhex(self.hash) if self.hash is not None else None
+        return [24, hash, self.import_mode, 1001, self.module, self.cls]
+
+    def as_location(self):
+        raise DhallImportError(self.scheme + " cannot be imported `as Location`")
+
+    @classmethod
+    def from_cbor(cls, encoded=None, decoded=None):
+        assert encoded is None
+        assert decoded.pop(0) == 24
+        return cls(decoded[3], decoded[4], decoded[0], decoded[1])
+
+    def origin(self):
+        "Origin returns NullOrigin, since PydhallSchema do not have an origin."
+        return NullOrigin
+
+    def __str__(self):
+        return f"{self.scheme}:{self.module}::{self.cls}"
+
+    def __hash__(self):
+        return hash((self.import_mode, self.module, self.cls))
+
+    def fetch(self, origin):
+        """
+        Get a record of all the union types and dhall schemas that define the
+        target pydhall schema.
+        """
+        from pydhall.schema import get_library
+        from pydhall.ast.record.base import RecordLitValue
+        mod = import_module(self.module)
+        return RecordLitValue(get_library(getattr(mod, self.cls))).quote()
+
+    def chain_onto(self, base):
+        return self
 
 
 class RemoteFile(Import):

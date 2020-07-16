@@ -20,6 +20,8 @@ class UniverseValue(Value):
         return self.name
 
     def alpha_equivalent(self, other, level=0):
+        if not isinstance(other, UniverseValue):
+            return None
         return other.name == self.name
 
     def quote(self, ctx=None, normalize=False):

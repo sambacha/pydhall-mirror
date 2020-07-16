@@ -71,6 +71,7 @@ class App(Term):
             raise DhallTypeError(TYPE_ERROR_MESSAGE.NOT_A_FUNCTION)
         expected_type = fn_type.domain
         if not expected_type @ arg_type:
+            # import ipdb; ipdb.set_trace()
             raise DhallTypeError(TYPE_ERROR_MESSAGE.TYPE_MISMATCH % (
                 expected_type.quote(), arg_type.quote()))
         return fn_type.codomain(self.arg.eval())

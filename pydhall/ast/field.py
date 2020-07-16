@@ -42,7 +42,7 @@ class ProjectType(Term):
             try:
                 field_type = record_type[name]
             except KeyError:
-                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD)
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD + f" `{name}`")
             if not field_type @ typ:
                 raise DhallTypeError(
                     TYPE_ERROR_MESSAGE.PROJECTION_TYPE_MISMATCH % (
@@ -127,7 +127,7 @@ class Project(Term):
             try:
                 fields[name] = record_type[name]
             except KeyError:
-                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD)
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD + f" `{name}`")
         return RecordTypeValue(fields)
 
     def cbor_values(self):
@@ -234,11 +234,11 @@ class Field(Term):
         record_type = self.record.type(ctx)
         if isinstance(record_type, RecordTypeValue):
             if self.field_name not in record_type:
-                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD)
+                raise DhallTypeError(TYPE_ERROR_MESSAGE.MISSING_FIELD + f" `{self.field_name}`")
             return record_type[self.field_name]
         union_type = self.record.eval()
         if not isinstance(union_type, UnionTypeValue):
-            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS)
+            raise DhallTypeError(TYPE_ERROR_MESSAGE.CANT_ACCESS + f": `{repr(self.record)}.{self.field_name}")
         try:
             alternative_type = union_type[self.field_name]
         except KeyError:
