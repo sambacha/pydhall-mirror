@@ -35,7 +35,7 @@ class Config(Record):
     map1  = MapOfField(Natural)
     optmap1 = MapOfField(Natural, optional=True)
     optmap2 = MapOfField(Natural, optional=True)
-    optmap3 = MapOfField(Natural, optional="ommitNone")
+    optmap3 = MapOfField(Natural, optional="omitNone")
     optmap4 = MapOfField(Natural, optional=True, default=None)
     optmap5 = MapOfField(Natural, optional=True, default={"j": 5})
 

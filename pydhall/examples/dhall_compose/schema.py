@@ -30,12 +30,12 @@ class MapItem(Union):
 class BuildConfig(Record):
     context    = TextField(default=".")
     dockerfile = TextField(default="Dockerfile")
-    network    = TextField(optional="ommitNone", default=None)
-    target     = TextField(optional="ommitNone", default=None)
+    network    = TextField(optional="omitNone", default=None)
+    target     = TextField(optional="omitNone", default=None)
     args       = UnionField(ListOrMap, default={"List": []})
     labels     = UnionField(ListOrMap, default={"List": []})
-    cache_from = ListOfField(Text, optional="ommitNone", default=None)
-    shm_size   = UnionField(StringOrNatural, optional="ommitNone", default=None)
+    cache_from = ListOfField(Text, optional="omitNone", default=None)
+    shm_size   = UnionField(StringOrNatural, optional="omitNone", default=None)
 
 
 class Build(Union):
@@ -46,11 +46,11 @@ class Build(Union):
 # services.*.config
 
 class LongConfig(Record):
-    source = TextField(optional="ommitNone")
-    target = TextField(optional="ommitNone")
-    uid = TextField(optional="ommitNone", default="'0'")
-    gid = TextField(optional="ommitNone", default="'0'")
-    mode = NaturalField(optional="ommitNone", default=292)
+    source = TextField(optional="omitNone")
+    target = TextField(optional="omitNone")
+    uid = TextField(optional="omitNone", default="'0'")
+    gid = TextField(optional="omitNone", default="'0'")
+    mode = NaturalField(optional="omitNone", default=292)
 
 
 class ServiceConfig(Union):
@@ -79,9 +79,9 @@ class Logging(Record):
 # services.*.networks
 
 class ServiceNetworkDef(Record):
-    aliases = ListOfField(Text, optional="ommitNone")
-    ipv4_address = TextField(optional="ommitNone")
-    ipv6_address = TextField(optional="ommitNone")
+    aliases = ListOfField(Text, optional="omitNone")
+    ipv4_address = TextField(optional="omitNone")
+    ipv6_address = TextField(optional="omitNone")
 
 
 class Networks(Union):
@@ -92,10 +92,10 @@ class Networks(Union):
 # services.*.ports
 
 class PortDef(Record):
-    mode = TextField(optional="ommitNone")
-    target = NaturalField(optional="ommitNone")
-    published = NaturalField(optional="ommitNone")
-    protocol = TextField(optional="ommitNone")
+    mode = TextField(optional="omitNone")
+    target = NaturalField(optional="omitNone")
+    published = NaturalField(optional="omitNone")
+    protocol = TextField(optional="omitNone")
 
 
 class Port(Union):
@@ -146,56 +146,56 @@ class ServiceVolume(Union):
 # services.*
 
 class Service(Record):
-    image             = TextField(optional="ommitNone", default=None)
-    build             = UnionField(Build, optional="ommitNone", default=None)
-    cap_add           = ListOfField(Text, optional="ommitNone", default=None)
-    cap_drop          = ListOfField(Text, optional="ommitNone", default=None)
-    cgroup_parent     = TextField(optional="ommitNone", default=None)
-    command           = UnionField(StringOrList, optional="ommitNone", default=None)
-    configs           = UnionField(ServiceConfig, optional="ommitNone", default=None)
-    container_name    = TextField(optional="ommitNone", default=None)
+    image             = TextField(optional="omitNone", default=None)
+    build             = UnionField(Build, optional="omitNone", default=None)
+    cap_add           = ListOfField(Text, optional="omitNone", default=None)
+    cap_drop          = ListOfField(Text, optional="omitNone", default=None)
+    cgroup_parent     = TextField(optional="omitNone", default=None)
+    command           = UnionField(StringOrList, optional="omitNone", default=None)
+    configs           = UnionField(ServiceConfig, optional="omitNone", default=None)
+    container_name    = TextField(optional="omitNone", default=None)
     # credential_spec = RecordField(...)  # TODO: MS Windows only
-    depends_on        = ListOfField(Text, optional="ommitNone", default=None)
+    depends_on        = ListOfField(Text, optional="omitNone", default=None)
     # deploy          = RecordField(...)  # TODO: swarm only
-    devices           = ListOfField(Text, optional="ommitNone", default=None)
-    dns               = UnionField(StringOrList, optional="ommitNone", default=None)
-    dns_search        = UnionField(StringOrList, optional="ommitNone", default=None)
-    domain_name       = TextField(optional="ommitNone", default=None)
-    entrypoint        = UnionField(StringOrList, optional="ommitNone", default=None)
-    env_file          = UnionField(StringOrList, optional="ommitNone", default=None)
+    devices           = ListOfField(Text, optional="omitNone", default=None)
+    dns               = UnionField(StringOrList, optional="omitNone", default=None)
+    dns_search        = UnionField(StringOrList, optional="omitNone", default=None)
+    domain_name       = TextField(optional="omitNone", default=None)
+    entrypoint        = UnionField(StringOrList, optional="omitNone", default=None)
+    env_file          = UnionField(StringOrList, optional="omitNone", default=None)
     environment       = UnionField(ListOrMap, default={"List": []})
-    expose            = ListOfField(Natural, optional="ommitNone", default=None)
-    extra_hosts       = UnionField(ListOrMap, optional="ommitNone", default=None)
-    healtcheck        = RecordField(Healthcheck, optional="ommitNone", default=None)
-    hostname          = TextField(optional="ommitNone", default=None)
+    expose            = ListOfField(Natural, optional="omitNone", default=None)
+    extra_hosts       = UnionField(ListOrMap, optional="omitNone", default=None)
+    healtcheck        = RecordField(Healthcheck, optional="omitNone", default=None)
+    hostname          = TextField(optional="omitNone", default=None)
     init              = BoolField(default=False)
     ipc               = TextField(default="")
     isolation         = TextField(default="default")
-    labels            = UnionField(ListOrMap, optional="ommitNone", default=None)
-    logging           = RecordField(Logging, optional="ommitNone", default=None)
-    mac_address       = TextField(optional="ommitNone", default=None)
+    labels            = UnionField(ListOrMap, optional="omitNone", default=None)
+    logging           = RecordField(Logging, optional="omitNone", default=None)
+    mac_address       = TextField(optional="omitNone", default=None)
     # TODO: ChoiceField
-    network_mode      = TextField(optional="ommitNone", default=None)
-    networks          = UnionField(Networks, optional="ommitNone", default=None)
-    pid               = TextField(optional="ommitNone", default=None)
+    network_mode      = TextField(optional="omitNone", default=None)
+    networks          = UnionField(Networks, optional="omitNone", default=None)
+    pid               = TextField(optional="omitNone", default=None)
     ports             = ListOfField(Port, default=[])
-    privileged        = BoolField(optional="ommitNone", default=None)
-    read_only         = BoolField(optional="ommitNone", default=None)
-    restart           = TextField(optional="ommitNone", default=None)
-    security_opt      = ListOfField(Text, optional="ommitNone", default=None)
-    shm_size          = TextField(optional="ommitNone", default=None)
+    privileged        = BoolField(optional="omitNone", default=None)
+    read_only         = BoolField(optional="omitNone", default=None)
+    restart           = TextField(optional="omitNone", default=None)
+    security_opt      = ListOfField(Text, optional="omitNone", default=None)
+    shm_size          = TextField(optional="omitNone", default=None)
     # secrets         = ...  # TODO.
-    sysctl            = UnionField(ListOrMap, optional="ommitNone", default=None)
-    stdin_open        = BoolField(optional="ommitNone", default=None)
-    stop_grace_period = TextField(optional="ommitNone", default=None)
-    stop_signal       = TextField(optional="ommitNone", default=None)
-    tmpfs             = UnionField(StringOrList, optional="ommitNone", default=None)
-    tty               = BoolField(optional="ommitNone", default=None)
-    ulimits           = MapOfField(Ulimit, optional="ommitNone", default=None)
-    user              = TextField(optional="ommitNone", default=None)
-    userns_mode       = TextField(optional="ommitNone", default=None)
-    volumes           = ListOfField(ServiceVolume, optional="ommitNone", default=None)
-    working_dir       = TextField(optional="ommitNone", default=None)
+    sysctl            = UnionField(ListOrMap, optional="omitNone", default=None)
+    stdin_open        = BoolField(optional="omitNone", default=None)
+    stop_grace_period = TextField(optional="omitNone", default=None)
+    stop_signal       = TextField(optional="omitNone", default=None)
+    tmpfs             = UnionField(StringOrList, optional="omitNone", default=None)
+    tty               = BoolField(optional="omitNone", default=None)
+    ulimits           = MapOfField(Ulimit, optional="omitNone", default=None)
+    user              = TextField(optional="omitNone", default=None)
+    userns_mode       = TextField(optional="omitNone", default=None)
+    volumes           = ListOfField(ServiceVolume, optional="omitNone", default=None)
+    working_dir       = TextField(optional="omitNone", default=None)
 
 
 class Compose(Record):

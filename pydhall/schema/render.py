@@ -37,7 +37,7 @@ class RenderVisitor(SchemaVisitor):
         u = f.__get__(self.current_record)
         self.visit(u)
         result = self.result
-        if result is None and f.optional == "ommitNone":
+        if result is None and f.optional == "omitNone":
             def add_field(r):
                 return
         else:
@@ -49,7 +49,7 @@ class RenderVisitor(SchemaVisitor):
     def visit_unionfield(self, f):
         u = f.__get__(self.current_record)
         if u is None:
-            if f.optional == "ommitNone": 
+            if f.optional == "omitNone": 
                 def add_union(r):
                     return
             else:
