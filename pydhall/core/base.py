@@ -5,7 +5,7 @@ import cbor
 import cbor2
 
 from pydhall.utils import hash_all, cbor_dumps
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
 class QuoteContext(dict):

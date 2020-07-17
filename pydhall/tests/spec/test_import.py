@@ -4,9 +4,9 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast import LocalFile
-from pydhall.ast.import_ import base as import_
-from pydhall.ast.import_.base import set_cache_class, TestFSCache
+from pydhall.core import LocalFile
+from pydhall.core.import_ import base as import_
+from pydhall.core.import_.base import set_cache_class, TestFSCache
 
 from .utils import make_test_file_pairs
 

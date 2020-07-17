@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 from pydhall.utils import hash_all
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 from ..base import Term, Value, QuoteContext, EvalEnv, TypeContext, DictTerm
 from ..universe import UniverseValue, TypeValue

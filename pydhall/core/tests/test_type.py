@@ -1,8 +1,8 @@
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.boolean.base import BoolTypeValue
-from pydhall.ast.universe import TypeValue, KindValue, SortValue
+from pydhall.core.boolean.base import BoolTypeValue
+from pydhall.core.universe import TypeValue, KindValue, SortValue
 
 
 @pytest.mark.parametrize("input,expected", [

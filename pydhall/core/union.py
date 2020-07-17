@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import cbor
 
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 from pydhall.utils import cbor_dict
 
 from .base import Term, Value, TypeContext, EvalEnv, QuoteContext, Callable, DictTerm

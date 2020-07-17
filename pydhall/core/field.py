@@ -1,4 +1,4 @@
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 from .base import Term, Value, TypeContext, EvalEnv, QuoteContext
 

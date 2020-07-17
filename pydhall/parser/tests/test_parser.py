@@ -7,8 +7,8 @@ from math import inf, nan
 
 import pytest
 
-from pydhall.ast.comment import BlockComment, LineComment
-from pydhall.ast import (
+from pydhall.core.comment import BlockComment, LineComment
+from pydhall.core import (
     Binding,
     BoolLit,
     CompleteOp,

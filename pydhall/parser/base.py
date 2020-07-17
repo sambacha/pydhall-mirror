@@ -7,8 +7,8 @@ import unicodedata
 from fastidious import Parser
 from fastidious.fastidious_compiler import FastidiousCompiler
 
-from pydhall.ast.comment import BlockComment, LineComment
-from pydhall.ast import (
+from pydhall.core.comment import BlockComment, LineComment
+from pydhall.core import (
     Annot,
     App,
     Assert,

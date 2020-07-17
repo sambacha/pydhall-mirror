@@ -1,10 +1,10 @@
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.base import Value
-from pydhall.ast.double.base import DoubleLitValue
-from pydhall.ast.integer.base import IntegerLitValue
-from pydhall.ast.natural.base import NaturalLitValue
+from pydhall.core.base import Value
+from pydhall.core.double.base import DoubleLitValue
+from pydhall.core.integer.base import IntegerLitValue
+from pydhall.core.natural.base import NaturalLitValue
 
 
 # @pytest.mark.parametrize("input,expected", [

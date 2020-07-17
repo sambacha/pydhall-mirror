@@ -1,4 +1,4 @@
-from pydhall.ast.record.base import RecordTypeValue, RecordLitValue
+from pydhall.core.record.base import RecordTypeValue, RecordLitValue
 
 from ._base import Schema
 from .optional import Optional

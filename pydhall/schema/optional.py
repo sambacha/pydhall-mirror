@@ -1,4 +1,4 @@
-from pydhall.ast.optional.base import OptionalOf, SomeValue, NoneOf
+from pydhall.core.optional.base import OptionalOf, SomeValue, NoneOf
 
 from ._base import Schema
 

@@ -4,9 +4,9 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast import Term
-from pydhall.ast.type_error import DhallTypeError
-from pydhall.ast.import_.base import set_cache_class, InMemoryCache
+from pydhall.core import Term
+from pydhall.core.type_error import DhallTypeError
+from pydhall.core.import_.base import set_cache_class, InMemoryCache
 
 from .utils import make_test_file_pairs, collect_test_files
 from fastidious.parser_base import ParserError

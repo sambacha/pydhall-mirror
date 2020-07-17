@@ -4,7 +4,7 @@ import os
 import pytest
 
 from pydhall.parser import Dhall
-from pydhall.ast.import_.base import set_cache_class, InMemoryCache
+from pydhall.core.import_.base import set_cache_class, InMemoryCache
 
 from .utils import make_test_file_pairs
 

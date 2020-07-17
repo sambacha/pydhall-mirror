@@ -1,6 +1,6 @@
 from ..base import Op, OpValue, EvalEnv, QuoteContext
 from .base import DhallImportError
-from pydhall.ast.type_error import DhallTypeError
+from pydhall.core.type_error import DhallTypeError
 from pydhall.parser.exceptions import DhallParseError
 
 class ImportAltOpValue(OpValue):

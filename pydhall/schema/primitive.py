@@ -1,8 +1,8 @@
-from pydhall.ast.natural.base import NaturalLitValue, NaturalTypeValue
-from pydhall.ast.integer.base import IntegerLitValue, IntegerTypeValue
-from pydhall.ast.double.base import DoubleLitValue, DoubleTypeValue
-from pydhall.ast.text.base import PlainTextLitValue, TextTypeValue
-from pydhall.ast.boolean.base import BoolTypeValue, BoolLitValue
+from pydhall.core.natural.base import NaturalLitValue, NaturalTypeValue
+from pydhall.core.integer.base import IntegerLitValue, IntegerTypeValue
+from pydhall.core.double.base import DoubleLitValue, DoubleTypeValue
+from pydhall.core.text.base import PlainTextLitValue, TextTypeValue
+from pydhall.core.boolean.base import BoolTypeValue, BoolLitValue
 
 from ._base import Schema
 

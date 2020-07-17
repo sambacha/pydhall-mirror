@@ -164,7 +164,7 @@ class PydhallSchema(Import):
         target pydhall schema.
         """
         from pydhall.schema import get_library
-        from pydhall.ast.record.base import RecordLitValue
+        from pydhall.core.record.base import RecordLitValue
         mod = import_module(self.module)
         return RecordLitValue(get_library(getattr(mod, self.cls))).quote()
 

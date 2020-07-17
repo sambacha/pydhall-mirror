@@ -1,7 +1,7 @@
 from ..base import Op, OpValue, QuoteContext, TypeContext, EvalEnv
 from .base import TextTypeValue, TextLit, Chunk
 
-from pydhall.ast.type_error import TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import TYPE_ERROR_MESSAGE
 
 
 class TextAppendOpValue(OpValue):

@@ -1,4 +1,4 @@
-from pydhall.ast.union import UnionTypeValue, UnionVal
+from pydhall.core.union import UnionTypeValue, UnionVal
 
 from ._base import Schema
 from .list_ import List

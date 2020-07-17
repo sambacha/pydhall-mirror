@@ -3,7 +3,7 @@ from io import StringIO
 from ..base import Value, Node, Term, Builtin, BuiltinValue, EvalEnv, TypeContext
 from ..universe import TypeValue
 
-from pydhall.ast.type_error import TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import TYPE_ERROR_MESSAGE
 
 
 TextTypeValue = BuiltinValue("Text")

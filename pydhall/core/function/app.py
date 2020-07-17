@@ -1,5 +1,5 @@
 from ..base import Term, TypeContext, EvalEnv, Value, QuoteContext, Callable
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 from .pi import PiValue
 
 

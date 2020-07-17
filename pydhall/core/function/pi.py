@@ -1,7 +1,7 @@
 from ..base import Term, Value, EvalEnv, TypeContext, QuoteContext
 from ..universe import UniverseValue, TypeValue
 
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 from .var import _QuoteVar
 

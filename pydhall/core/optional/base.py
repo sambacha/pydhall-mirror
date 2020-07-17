@@ -1,6 +1,6 @@
 from ..base import Term, Builtin, Value, EvalEnv, Callable, QuoteContext, DependentValue, TypeContext
 from ..universe import TypeValue
-from pydhall.ast.type_error import TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import TYPE_ERROR_MESSAGE
 from ..function.pi import PiValue, FnType
 
 ## Optional

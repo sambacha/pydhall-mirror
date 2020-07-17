@@ -5,8 +5,8 @@ import argparse
 from pathlib import Path
 
 from pydhall.parser import Dhall
-from pydhall.ast.type_error import DhallTypeError
-from pydhall.ast.import_.base import LocalFile
+from pydhall.core.type_error import DhallTypeError
+from pydhall.core.import_.base import LocalFile
 
 
 def normalize(args):

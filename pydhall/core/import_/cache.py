@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from pydhall.ast.base import Term
+from pydhall.core.base import Term
 
 
 class DhallCachePoisoned(Exception):

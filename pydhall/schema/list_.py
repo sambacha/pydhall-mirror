@@ -1,4 +1,4 @@
-from pydhall.ast.list_.base import ListOf as ListOfValue, EmptyListValue, NonEmptyListValue
+from pydhall.core.list_.base import ListOf as ListOfValue, EmptyListValue, NonEmptyListValue
 
 from ._base import Schema
 from .record import Record, Field

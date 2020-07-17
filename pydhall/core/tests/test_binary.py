@@ -1,8 +1,8 @@
 import pytest
 
 from pydhall import loads
-from pydhall.ast import Term
-from pydhall.ast import NaturalLit
+from pydhall.core import Term
+from pydhall.core import NaturalLit
 
 # this is more of an integration test as the sha256 values
 # are the results of dahll-haskell's hash command.

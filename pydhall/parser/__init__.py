@@ -1,4 +1,4 @@
-import pydhall.ast.builtins
+import pydhall.core.builtins
 from .base import Dhall
 from .exceptions import DhallParseError
 

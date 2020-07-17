@@ -3,7 +3,7 @@ from ..universe import TypeValue
 from ..function.pi import FnType
 from ..function.app import App
 
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 
 class _ListValue(Callable):

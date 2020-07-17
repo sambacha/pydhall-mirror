@@ -2,7 +2,7 @@ import cbor
 
 from .base import Value, Builtin, Term
 
-from pydhall.ast.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
+from pydhall.core.type_error import DhallTypeError, TYPE_ERROR_MESSAGE
 
 class UniverseValue(Value):
     def __init__(self, name, type, rank):
