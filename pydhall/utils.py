@@ -70,3 +70,42 @@ def cbor_dumps(obj):
         return f.getvalue()
 
 
+class visitor:
+    def __init__(self, *cls):
+        self.cls = cls
+
+    def __call__(self, fn):
+        fn._visitor_class = self.cls
+        return fn
+
+
+class Visitor:
+    _visitor = None
+
+    def __init_subclass__(cls,**kwargs):
+        super().__init_subclass__(**kwargs)
+        cls._visitor = {}
+        for name in dir(cls):
+            attr = getattr(cls, name)
+            if hasattr(attr, "_visitor_class"):
+                for target in attr._visitor_class:
+                    cls._visitor[target] = attr
+
+    def visit(self, sh):
+        key = None
+        try:
+            if sh in self._visitor:
+                key = sh
+        except TypeError:  # probably a dict or a list
+            pass
+        if key is None:
+            if isinstance(sh, type):
+                tp = sh
+            else:
+                tp = sh.__class__
+            for cls in tp.__mro__[:-1]:
+                if cls in self._visitor:
+                    key = cls
+                    break
+        method = self._visitor.get(key, self.__class__.visit_generic)
+        return method(self, sh)
