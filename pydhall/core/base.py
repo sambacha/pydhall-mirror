@@ -160,6 +160,8 @@ class Term(Node):
     _eval = None
     _cbor_idx = None
     _rebindable = None
+    precedence = 10000
+    commutative = True
 
     _cbor_indexes = {}
 

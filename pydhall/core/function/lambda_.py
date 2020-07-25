@@ -60,6 +60,7 @@ class Lambda(Term):
     # attrs = ['label', 'type_', 'body']
     __slots__ = ['label', 'type_', 'body']
     _cbor_idx = 1
+    precedence = 122
 
     def __init__(self, label, type_, body, **kwargs):
         self.label = label

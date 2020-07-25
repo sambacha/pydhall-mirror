@@ -109,3 +109,6 @@ class Visitor:
                     break
         method = self._visitor.get(key, self.__class__.visit_generic)
         return method(self, sh)
+
+    def visit_generic(self, sh):
+        return None

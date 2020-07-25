@@ -60,6 +60,7 @@ class Pi(Term):
     # attrs = ['label', 'type_', 'body']
     __slots__ = ['label', 'type_', 'body']
     _cbor_idx = 2
+    precedence = 190
 
     def __init__(self, label, type_, body, **kwargs):
         self.label = label

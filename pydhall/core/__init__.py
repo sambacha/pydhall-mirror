@@ -84,6 +84,7 @@ class Assert(Term):
     # attrs = ['annotation']
     __slots__ = ['annotation']
     _cbor_idx = 19
+    precedence = 125
 
     def __init__(self, annotation, **kwargs):
         self.annotation = annotation
@@ -137,7 +138,6 @@ class Binding(Node):
         for k, v in kwargs.items():
             setattr(new, k, v)
         return new
-
 
 
 class Let(Term):

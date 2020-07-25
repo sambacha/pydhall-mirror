@@ -33,6 +33,3 @@ class SchemaVisitor(Visitor):
     @visitor(Optional)
     def visit_optional(self, o):
         self.visit(o.type)
-
-    def visit_generic(self, sh):
-        return None

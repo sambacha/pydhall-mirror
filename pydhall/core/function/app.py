@@ -41,6 +41,7 @@ class App(Term):
     # attrs = ['fn', 'arg']
     __slots__ = ['fn', 'arg']
     _cbor_idx = 0
+    precedence = 200
 
     def __init__(self, fn, arg, **kwargs):
         self.fn = fn
