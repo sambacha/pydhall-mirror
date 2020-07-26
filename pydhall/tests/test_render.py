@@ -6,49 +6,48 @@ from pydhall.render import render
 
 
 @pytest.mark.parametrize("input,ascii", [
-#     ("3", False),
-#     ("+3", False),
-#     ("True", False),
-#     ("1.42", False),
-#     ("True || False", False),
-#     ("True || False && True", False),
-#     ("(True || False) && True", False),
-#     ("assert : (λ(x : Bool) → x) ≡ (λ(y : Bool) → y)", False),
-#     ("assert : (\(x : Bool) -> x) === (\(y : Bool) -> y)", True),
-#     ("""[
-# , True
-# , False
-# , True
-# , False
-# , True
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# , True
-# , False
-# ]""", False),
-#     ("[ True, False ]", False),
-#     ("""let even
-#     : List Bool → Bool
-#     = λ(xs : List Bool) →
-#         List/fold Bool xs Bool (λ(x : Bool) → λ(y : Bool) → x == y) True
+    ("3", False),
+    ("+3", False),
+    ("True", False),
+    ("1.42", False),
+    ("True || False", False),
+    ("True || False && True", False),
+    ("(True || False) && True", False),
+    ("assert : (λ(x : Bool) → x) ≡ (λ(y : Bool) → y)", False),
+    ("assert : (\(x : Bool) -> x) === (\(y : Bool) -> y)", True),
+    ("""[
+, True
+, False
+, True
+, False
+, True
+, True
+, False
+, True
+, False
+, True
+, False
+, True
+, False
+, True
+, False
+, True
+, False
+, True
+, False
+, True
+, False
+]""", False),
+    ("[ True, False ]", False),
+    ("""let even
+    : List Bool → Bool
+    = λ(xs : List Bool) →
+        List/fold Bool xs Bool (λ(x : Bool) → λ(y : Bool) → x == y) True
 
-# let example0 = assert : even  [ False, True, False ] ≡ True
+let example0 = assert : even [ False, True, False ] ≡ True
 
-# in even""", False),
-    ("""
-let map
+in even""", False),
+    ("""let map
     : ∀(a : Type) → ∀(b : Type) → (a → b) → List a → List b
     = λ(a : Type) →
       λ(b : Type) →
