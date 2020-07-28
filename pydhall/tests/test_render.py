@@ -15,8 +15,8 @@ from pydhall.render import render
     ("(True || False) && True", False),
     ("assert : (λ(x : Bool) → x) ≡ (λ(y : Bool) → y)", False),
     ("assert : (\(x : Bool) -> x) === (\(y : Bool) -> y)", True),
-    ("""[
-, True
+    ("""
+[ True
 , False
 , True
 , False
@@ -65,9 +65,31 @@ let example0 =
       : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
 
 in  map""", False),
+    ("""let map
+    : ∀(aLongName : Type) →
+      ∀(bLongName : Type) →
+      (aLongName → bLongName) →
+      List aLongName →
+        List bLongName
+    = λ(aLongName : Type) →
+      λ(bLongName : Type) →
+      λ(f : aLongName → bLongName) →
+      λ(xs : List aLongName) →
+        List/build
+          bLongName
+          ( λ(list : Type) →
+            λ(cons : bLongName → list → list) →
+              List/fold aLongName xs list (λ(x : aLongName) → cons (f x))
+          )
 
+let example0 =
+        assert
+      : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
+
+in  map""", False),
 ])
 def test_render(input, ascii):
+    input = input.lstrip()
     term = Dhall.p_parse(input)
     rendered = render(term, ascii=ascii)
     assert rendered == input

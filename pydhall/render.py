@@ -73,13 +73,16 @@ class ChunkVisitor(Visitor):
     def __init__(self, ascii=False):
         self.chunk = Chunk()
         self.ascii = ascii
-        self.in_lambda = False
 
     def visit_with_precedence(self, term, base):
         if base.commutative and term.precedence < base.precedence or term.precedence <= base.precedence:
-            self.append("(")
+            self.new_chunk("  ", first_indent="( ")
+            # self.append("(")
             self.visit(term)
+            self.chunk = self.chunk.parent
+            self.new_chunk()
             self.append(")")
+            self.chunk = self.chunk.parent
         else:
             self.visit(term)
 
@@ -132,48 +135,10 @@ class ChunkVisitor(Visitor):
     @visitor(Assert)
     def visit_assert(self, term):
         "assert : (λ(x : Bool) → x) ≡ (λ(y : Bool) → y)"
-        self.append("assert : ")
-        self.visit(term.annotation)
-
-    @visitor(Lambda)
-    def visit_lambda(self, term):
+        self.new_chunk(" : ", first_indent="  ")
+        self.append("assert")
         self.new_chunk()
-        if self.ascii:
-            self.append(r"\(")
-        else:
-            self.append("λ(")
-        self.append(term.label)
-        self.append(" : ")
-        self.visit(term.type_)
-        self.append(")")
-        # self.append(term.body.__class__.__name__)
-        # self.append(repr(self.in_lambda))
-        if self.ascii:
-            self.append(" ->")
-        else:
-            self.append(" →")
-        self.chunk = self.chunk.parent
-        if isinstance(term.body, Lambda):
-            self.in_lambda = True
-            self.new_chunk()
-            self.visit(term.body)
-            # self.chunk = self.chunk.parent
-        else:
-            if self.in_lambda:
-                self.in_lambda = False
-                # self.chunk = self.chunk.parent
-            self.new_chunk(first_indent="  ")
-            self.visit(term.body)
-            # else:
-            #     self.new_chunk("  ")
-            #     self.visit(term.body)
-
-    @visitor(Builtin)
-    def visit_builtin(self, term):
-        if term._literal_name:
-            self.append(term._literal_name)
-        else:
-            self.append(term.__class__.__name__)
+        self.visit(term.annotation)
 
     @visitor(Var)
     def visit_var(self, term):
@@ -196,15 +161,45 @@ class ChunkVisitor(Visitor):
 
     @visitor(Binding)
     def visit_body(self, term):
+        self.new_chunk("    ", first_indent="")
         self.append("let ")
         self.append(term.variable)
-        self.new_chunk("    ")
         if term.annotation:
-            self.new_chunk("XX", first_indent=": ")
+            self.new_chunk("  ", first_indent=": ")
             self.visit(term.annotation)
             self.chunk = self.chunk.parent
         self.new_chunk("  ", first_indent="= ")
         self.visit(term.value)
+
+    @visitor(Builtin)
+    def visit_builtin(self, term):
+        if term._literal_name:
+            self.append(term._literal_name)
+        else:
+            self.append(term.__class__.__name__)
+
+    @visitor(Lambda)
+    def visit_lambda(self, term):
+        self.new_chunk()
+        if self.ascii:
+            self.append(r"\(")
+        else:
+            self.append("λ(")
+        self.append(term.label)
+        self.append(" : ")
+        self.visit(term.type_)
+        self.append(")")
+        if self.ascii:
+            self.append(" ->")
+        else:
+            self.append(" →")
+        self.chunk = self.chunk.parent
+        if isinstance(term.body, Lambda):
+            self.visit(term.body)
+            # term = term.body
+        else:
+            self.new_chunk(first_indent="  ")
+            self.visit(term.body)
 
     @visitor(Pi)
     def visit_pi(self, term):
@@ -224,23 +219,27 @@ class ChunkVisitor(Visitor):
             self.append(" ->")
         else:
             self.append(" →")
+        self.chunk = self.chunk.parent
         if isinstance(term.body, Pi):
-            self.chunk = self.chunk.parent
-        self.new_chunk()
-        self.visit(term.body)
+            self.visit(term.body)
+        else:
+            self.new_chunk(first_indent="  ")
+            self.visit(term.body)
 
     @visitor(App)
     def visit_app(self, term):
+        self.new_chunk("  ", first_indent="")
         self.visit(term.fn)
-        self.append(" ")
+        if isinstance(term.arg, App):
+            self.chunk = self.chunk.parent
+        self.new_chunk()
         self.visit_with_precedence(term.arg, term)
 
     @visitor(NonEmptyList)
     def visit_nonempty_list(self, term):
         self.new_chunk()
-        self.append("[")
         self.chunk = self.chunk.parent
-        self.new_chunk("", "\n, ")
+        self.new_chunk(", ", first_indent="[ ")
         for item in term.content:
             self.new_chunk("")
             self.visit(item)
@@ -248,7 +247,6 @@ class ChunkVisitor(Visitor):
         self.chunk = self.chunk.parent
         self.new_chunk()
         self.append("]")
-        self.chunk = self.chunk.parent
 
     def __call__(self, term):
         self.visit(term)
@@ -267,8 +265,6 @@ class RenderVisitor(Visitor):
         self.raise_ = raise_on_overflow
         self.on_nl = False
         self.last_char = ""
-        # self.line_prefix = ""
-        # self.line_suffix = ""
 
     def write(self, txt):
         if not txt:
@@ -287,26 +283,6 @@ class RenderVisitor(Visitor):
             result += i
         return result
 
-    def new_line(self, indent, force_nl=None):
-        # self.out.write("|")
-        if force_nl is None:
-            force_nl = self.force_nl
-        self.out.write(self.line_suffix)
-        if not self.on_nl:
-            if force_nl:
-                self.indent_stack.append(indent)
-                self.out.write("\n")
-                self.line_len = 0
-                for i in self.indent_stack:
-                    self.write(i)
-            else:
-                self.indent_stack.append("")
-                self.write(" ")
-            self.on_nl = True
-        else:
-            self.indent_stack.append("")
-        self.out.write(self.line_prefix)
-
     def render_chunk(self, chunk):
         if self.raise_ and self.wrap < 0:
             raise OverflowError()
@@ -315,21 +291,9 @@ class RenderVisitor(Visitor):
         self.indent_stack.pop()
         return self.out.getvalue()
 
-    # @visitor(ListChunk)
-    def visit_list_chunk(self, chunk):
-        old_line_prefix = self.line_prefix
-        old_line_suffix = self.line_suffix
-        self.line_suffix, self.line_prefix = chunk.separator.split("\n")
-        self.visit_chunk(chunk)
-        self.line_prefix = old_line_prefix
-        self.line_suffix = old_line_suffix
-
     @visitor(Chunk)
     def visit_chunk(self, chunk):
         # try to inline the chunk
-        if not self.raise_:
-            print(chunk)
-        line_suffix, line_prefix = chunk.separator.split("\n")
         split = False
         try:
             RenderVisitor(wrap=self.wrap - self.line_len, raise_on_overflow=True).render_chunk(chunk)
@@ -337,54 +301,42 @@ class RenderVisitor(Visitor):
             if self.raise_:
                 raise
             split = True
-        # if self.line_len + len(c) > self.wrap:
         if split:
-            # self.new_line(chunk.indent, True)
-            print("########## Split")
             self.indent_stack.append(chunk.indent)
-            print(self.indent_stack)
             for idx, c in enumerate(chunk.content):
                 if isinstance(c, Blank):
                     self.out.write("\n")
                     self.line_len = 0
                     continue
                 if idx:
-                    self.write(line_suffix)
                     self.out.write("\n")
                     self.line_len = 0
                 if idx and self.line_len == 0:
-                    # if idx == 0 and chunk.first_indent != chunk.indent:
-                    #     for i in self.indent_stack[:-1]:
-                    #         self.write(i)
-                    #     self.write(chunk.first_indent)
-                    # else:
-                        if self.full_indent():
-                            print(f"INDENT `{self.full_indent()}`")
+                        # if self.full_indent():
+                        #     print(f"INDENT `{self.full_indent()}`")
                         for i in self.indent_stack:
                             self.write(i)
                 if not idx:
                     self.write(chunk.first_indent)
                 self.on_nl = True
-                self.write(line_prefix)
                 self.visit(c)
             self.indent_stack.pop()
         else:
-            # self.new_line(chunk.indent)
-            # self.indent_stack.append("")
-            # if self.on_nl:
-            #     self.write(chunk.indent)
             for idx, c in enumerate(chunk.content):
                 if isinstance(c, Blank):
                     continue
                 if not idx:
                     if chunk.first_indent != chunk.indent and (self.on_nl or chunk.first_indent.strip()):
-                        self.write(chunk.first_indent)
-                else:
-                    self.write(line_suffix)
-                    if not line_prefix and isinstance(c, Chunk) and self.last_char not in " (":
-                        self.write(" ")
+                        if chunk.first_indent == "( ":
+                            self.write("(")
+                        else:
+                            self.write(chunk.first_indent)
+                elif isinstance(c, Chunk):
+                    if not chunk.indent.strip():
+                        if self.last_char not in " (" and c.content != [")"]:
+                            self.write(" ")
                     else:
-                        self.write(line_prefix)
+                        self.write(chunk.indent)
                 self.visit(c)
 
     @visitor(str)
