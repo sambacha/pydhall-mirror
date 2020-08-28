@@ -88,6 +88,7 @@ class ChunkVisitor(Visitor):
 
     def new_chunk(self, indent="", separator="\n", first_indent=None):
         self.chunk = self.chunk.new_chunk(indent, separator, first_indent)
+        return self.chunk
 
     def blank(self):
         self.chunk.blank()
@@ -228,12 +229,18 @@ class ChunkVisitor(Visitor):
 
     @visitor(App)
     def visit_app(self, term):
-        self.new_chunk("  ", first_indent="")
-        self.visit(term.fn)
-        if isinstance(term.arg, App):
+        fn = term
+        args = []
+        while isinstance(fn, App):
+            args = [fn.arg] + args
+            fn = fn.fn
+        # self.new_chunk()
+        self.visit(fn)
+        self.new_chunk("  ")
+        for arg in args:
+            self.new_chunk()
+            self.visit_with_precedence(arg, term)
             self.chunk = self.chunk.parent
-        self.new_chunk()
-        self.visit_with_precedence(term.arg, term)
 
     @visitor(NonEmptyList)
     def visit_nonempty_list(self, term):
@@ -293,6 +300,8 @@ class RenderVisitor(Visitor):
 
     @visitor(Chunk)
     def visit_chunk(self, chunk):
+        # if not self.raise_:
+        #     print(chunk)
         # try to inline the chunk
         split = False
         try:

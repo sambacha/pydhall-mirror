@@ -14,7 +14,7 @@ from pydhall.render import render
     ("True || False && True", False),
     ("(True || False) && True", False),
     ("assert : (λ(x : Bool) → x) ≡ (λ(y : Bool) → y)", False),
-    ("assert : (\(x : Bool) -> x) === (\(y : Bool) -> y)", True),
+    (r"assert : (\(x : Bool) -> x) === (\(y : Bool) -> y)", True),
     ("""
 [ True
 , False
@@ -54,17 +54,16 @@ in even""", False),
       λ(f : a → b) →
       λ(xs : List a) →
         List/build
-          b
-          ( λ(list : Type) →
-            λ(cons : b → list → list) →
-              List/fold a xs list (λ(x : a) → cons (f x))
-          )
+        b
+        ( λ(list : Type) →
+          λ(cons : b → list → list) →
+            List/fold a xs list (λ(x : a) → cons (f x))
+        )
 
-let example0 =
-        assert
-      : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
+let example0
+    = assert : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
 
-in  map""", False),
+in map""", False),
     ("""let map
     : ∀(aLongName : Type) →
       ∀(bLongName : Type) →
@@ -76,17 +75,16 @@ in  map""", False),
       λ(f : aLongName → bLongName) →
       λ(xs : List aLongName) →
         List/build
-          bLongName
-          ( λ(list : Type) →
-            λ(cons : bLongName → list → list) →
-              List/fold aLongName xs list (λ(x : aLongName) → cons (f x))
-          )
+        bLongName
+        ( λ(list : Type) →
+          λ(cons : bLongName → list → list) →
+            List/fold aLongName xs list (λ(x : aLongName) → cons (f x))
+        )
 
-let example0 =
-        assert
-      : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
+let example0
+    = assert : map Natural Bool Natural/even [ 2, 3, 5 ] ≡ [ True, False, False ]
 
-in  map""", False),
+in map""", False),
 ])
 def test_render(input, ascii):
     input = input.lstrip()
